@@ -16,20 +16,29 @@ Version History:
 import numpy as np
 
 from src.support.support import findDefault
-
+from src.objects.Blade import Blade
 
 class ChopSaw:
-    """Aggregate state model of a ChopSaw"""
-    def __init__(self, **kwargs):
-        '''
-        Parameters:
-        ----------
-        **kwargs : dict, optional
-            Optional editing of state variables during initialization. Possible arguments are:
-            age : int, default=0
-                Age of the saw in years.
-        '''
+    """
+    Aggregate state model of a ChopSaw
+    
+    Parameters:
+    ----------
+    blade : Blade, default=Blade()
+        A Blade object, constructs a new Blade object by default.
+    **kwargs : dict, optional
+        Optional editing of state variables during initialization. Possible arguments are:
+        age : int, default=0
+            Age of the saw in years.
+    """
+    def __init__(self, blade=Blade(),**kwargs):
         self.age = findDefault(0, "age", kwargs)
+        self.blade = blade
+        
+
+    def toString(self):
+        """Returns a string describing the object."""
+        return "ChopSaw Object, age: " + str(self.age) + "; \nContains: \n\t" + self.blade.toString()
 
     
 

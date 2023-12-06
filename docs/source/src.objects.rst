@@ -12,6 +12,15 @@ src.objects.ChopSaw module
    :undoc-members:
    :show-inheritance:
 
+
+src.objects.Blade module
+--------------------------
+
+.. automodule:: src.objects.Blade
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Module contents
 ---------------
 
