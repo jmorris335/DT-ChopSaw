@@ -21,6 +21,14 @@ src.objects.blade module
    :undoc-members:
    :show-inheritance:
 
+src.objects.motor module
+--------------------------
+
+.. automodule:: src.objects.motor
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Module contents
 ---------------
 

@@ -2,7 +2,7 @@
 | File: blade.py 
 | Info: Presents the state-model for a saw blade, along with associated classes
 | Author: John Morris, jhmrrs@clemson.edu  
-| OrganizauxProduct Lifecycle Management Center at Clemson University, plmcenter@clemson.edu  
+| Organization: Product Lifecycle Management Center at Clemson University, plmcenter@clemson.edu  
 | Permission: Copyright (C) 2023, John Morris. All rights reserved. Should not be reproduced, edited, sourced, or utilized without written permission from the author or organization
 
 | Version History:
@@ -23,6 +23,10 @@ class Blade:
     **kwargs : dict, optional
         Optional editing of state variables during initialization. Possible arguments are:
 
+        id : int, default=1
+            The identification number of the blade.
+        age : int, default=0
+            The time since the blade was first used, in days.
         radius : float, default=0.092
             The radius of the blade, in meters.
         num_teeth : int, default=56
@@ -53,7 +57,10 @@ class Blade:
             The angular acceleration of the blade, in rad/s.
     ''' 
     def __init__(self, **kwargs):
+        self.id = findDefault(1, "id", kwargs)
+
         # Physical Constants
+        self.age = findDefault(0, "age", kwargs)
         self.radius = findDefault(.092, "radius", kwargs)
         self.num_teeth = findDefault(56, "num_teeth", kwargs)
         self.weight = findDefault(.01, "weight", kwargs)
