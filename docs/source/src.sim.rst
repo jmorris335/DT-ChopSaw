@@ -1,13 +1,13 @@
-src.support package
+src.sim package
 ===================
 
 Submodules
 ----------
 
-src.support.support module
+src.sim module
 --------------------------
 
-.. automodule:: src.support.support
+.. automodule:: src.sim
    :members:
    :undoc-members:
    :show-inheritance:
@@ -15,7 +15,7 @@ src.support.support module
 Module contents
 ---------------
 
-.. automodule:: src.support
+.. automodule:: src.sim
    :members:
    :undoc-members:
    :show-inheritance:

@@ -1,8 +1,8 @@
-from src.objects.ChopSaw import ChopSaw
+from src.objects.chopsaw import ChopSaw
+from src.sim.simple_sim import simple_sim
 
 def main():
-    chopsaw = ChopSaw()
-    print(chopsaw.toString())
+    simple_sim()
 
 if __name__ == '__main__':
     main()

@@ -8,7 +8,8 @@ Subpackages
    :maxdepth: 4
 
    src.objects
-   src.support
+   src.sim
+   src.aux
 
 Module contents
 ---------------

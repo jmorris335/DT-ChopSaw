@@ -4,19 +4,19 @@ src.objects package
 Submodules
 ----------
 
-src.objects.ChopSaw module
+src.objects.chopsaw module
 --------------------------
 
-.. automodule:: src.objects.ChopSaw
+.. automodule:: src.objects.chopsaw
    :members:
    :undoc-members:
    :show-inheritance:
 
 
-src.objects.Blade module
+src.objects.blade module
 --------------------------
 
-.. automodule:: src.objects.Blade
+.. automodule:: src.objects.blade
    :members:
    :undoc-members:
    :show-inheritance:
