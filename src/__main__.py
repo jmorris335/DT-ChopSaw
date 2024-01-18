@@ -1,8 +1,9 @@
 from src.objects.chopsaw import ChopSaw
-from src.sim.simple_sim import simple_sim
+from src.sim.simple_sim import simple_motor
+from src.test.scratchpaper import scratchpaper
 
 def main():
-    simple_sim()
+    scratchpaper()
 
 if __name__ == '__main__':
     main()
