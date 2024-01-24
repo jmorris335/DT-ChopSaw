@@ -12,6 +12,29 @@ src.objects.chopsaw module
    :undoc-members:
    :show-inheritance:
 
+src.objects.structure module
+--------------------------
+
+.. automodule:: src.objects.structure
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+src.objects.cut module
+--------------------------
+
+.. automodule:: src.objects.cut
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+src.objects.workpiece module
+--------------------------
+
+.. automodule:: src.objects.workpiece
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 src.objects.blade module
 --------------------------

@@ -1,2 +1,2 @@
 # DT-ChopSaw
-Digital twin for a generic chop saw
+Digital twin for a generic miter saw

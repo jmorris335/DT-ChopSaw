@@ -7,6 +7,7 @@
 | Version History:
 |- 0.1, 6 Dec 2023: Initialized
 """
+import numpy as np
 
 from src.aux.support import findDefault
 from src.objects.blade import Blade
@@ -37,6 +38,15 @@ class ChopSaw:
             Age of the saw, in days.
         power_on : bool, default=False
             Indicates input has been given to enable power to the saw.
+
+    Notes on Coordinate Systems
+    ---------------------------
+    1. Saw coordinates, or global coordinates, are defined with respect to the cutting path
+    of the the saw. The lowest point that the workpiece can be cut at is defined as (0,0,0).
+    This point is typically defined by the guards and table of the saw. The saw should be able
+    to pass below this point, though the workpiece should never be located lower than this.
+    2. Workpiece coordinates are the same as saw coordiantes, but in two dimensions. The plane
+    of the coordinate space is tangent to the blade (and thus the miter angle). 
     
     """
 
@@ -58,6 +68,14 @@ class ChopSaw:
         if self.power_on: self.motor.applyVoltage(18)
         self.motor.applyLoad()
         pass
+
+    # Maybe delete this?
+    def bladePosition(self):
+        """Returns the position of center of the blade in workpiece coordinates where (0,0) indicates 
+        the center, lowest point on the cutting path, defined by the saw table. See module notes."""
+        x = self.arm.x_arm
+        y = self.arm.l0 * (np.sin(self.arm.theta_arm) * np.cos(self.arm.phi_arm))
+        return x, y
 
     def __str__(self):
         """Returns a string describing the object."""

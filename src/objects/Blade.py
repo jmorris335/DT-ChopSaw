@@ -7,7 +7,7 @@
 
 | Version History:
 | - 0.0, 6 Dec 2023: Initialized
-  - 0.1, 2 Jan 2023: Basic dynamics formalized
+| - 0.1, 2 Jan 2023: Basic dynamics formalized
 """
 
 from enum import Enum

@@ -5,7 +5,7 @@
 | Organization: Product Lifecycle Management Center at Clemson University, plmcenter@clemson.edu  
 | Permission: Copyright (C) 2023, John Morris. All rights reserved. Should not be reproduced, edited, sourced, or utilized without written permission from the author or organization
 | Version History:
-|- 0.1, 15 Jan 2024: Initialized
+| - 0.1, 15 Jan 2024: Initialized
 """
 import numpy as np
 
