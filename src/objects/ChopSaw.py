@@ -8,6 +8,7 @@
 |- 0.1, 6 Dec 2023: Initialized
 """
 import numpy as np
+from matplotlib.patches import Circle
 
 from src.aux.support import findDefault
 from src.objects.blade import Blade
@@ -74,9 +75,13 @@ class ChopSaw:
         """Returns the position of center of the blade in workpiece coordinates where (0,0) indicates 
         the center, lowest point on the cutting path, defined by the saw table. See module notes."""
         x = self.arm.x_arm
-        y = self.arm.l0 * (np.sin(self.arm.theta_arm) * np.cos(self.arm.phi_arm))
+        y = self.arm.h0 + self.arm.l0 * (np.sin(self.arm.theta_arm) * np.cos(self.arm.phi_arm))
         return x, y
 
     def __str__(self):
         """Returns a string describing the object."""
         return "ChopSaw Object, age: " + str(self.age) + "; \nContains: \n\t" + self.blade.toString()
+    
+    def plot(self):
+        """Returns matplotlib patch object of blade."""
+        return Circle(self.bladePosition(), self.blade.radius)

@@ -47,10 +47,16 @@ def calcAngleToAxis(x, y, index: int=0) -> float:
         * 1: positive y-axis (topmost value)
         * 2: negative x-axis (leftmost value)
         * >=4: negative y-axis (bottommost value)
+
+    Notes
+    -----
+    Returns 0 if the point is located on the origin.
     """
     index = int(min(3, max(0, index)))
-    if x == 0: theta = np.pi/2 if y >= 0 else 3*np.pi/2
-    elif y == 0: theta = 0 if x >= 0 else np.pi
+    if x == 0.: 
+        if y == 0.: return 0. #point on the origin
+        else: theta = np.pi/2 if y >= 0 else 3*np.pi/2
+    elif y == 0.: theta = 0 if x >= 0 else np.pi
     else: theta = np.arctan(y/x)
     theta -= np.pi/2 * index
     if theta < 0: theta += 2*np.pi
@@ -93,20 +99,15 @@ def findCircleLineIntersections(U, V, A=None, B=None, C=None, center=None, radiu
     """Returns where the circle that goes through points A, B, C intersects the line going
     through points U and V. Returns None if no intersection found. All parameters should have
     a length of a least 2, where the first two elements represent the x and y coordinates."""
-    try:
-        if len(A) < 2 or len(B) < 2 or len(C) < 2 or len(U) < 2 or len(V) < 2: 
-            raise(Exception("Segment defined using scalar points."))
-    except(TypeError): 
-        raise(Exception("Segment defined using scalar points."))
     if center is None: 
         center = calcCircleCenter(A, B, C)
-        R = calcCircleRadius(A, center)
+        radius = calcCircleRadius(A, center)
     try: m = (V[1] - U[1]) / (V[0] - U[0])
-    except ZeroDivisionError: return vertLineCircleIntersections(center, R, U[0])
+    except ZeroDivisionError: return vertLineCircleIntersections(center, radius, U[0])
     a = 1 + m
     b = 2 * m * (U[1] - m * U[0])
-    c = (U[1] - m*U[0])**2 - R
-    if np.sqrt(b**2 - 4*a*c) <= 0: return None, None #Either no intersections or tangent point
+    c = (U[1] - m*U[0])**2 - radius
+    if b**2 - 4*a*c <= 0: return None, None #Either no intersections or tangent point
     x = np.roots([a, b, c])
     y = m * x + U[1] - m * U[0]
     return ([x[0], y[0]], [x[1], y[1]])
@@ -151,11 +152,10 @@ def checkIfPointsOnSegment(points, seg: list=None, A=None, B=None, C=None) -> li
     interpreted as an arc if C is passed, where C is an arbitrary point on an arc. All parameters
     should be arrays of length two, where the elements represent (x, y) coordinates."""
     if not hasattr(points, '__len__'): points = [points]
+    if not any(points): return [None]
     if seg is not None:
-        if len(seg) < 3: A, B = seg[0:2]
-        else: A, B, C = seg[0:3]
-    if C is None: return checkIfPointsOnLine(points, A, B)
-    else: return checkIfPointsOnArc(points, A, B, C)
+        if len(seg) < 3: return checkIfPointsOnLine(points, *seg)
+        else: return checkIfPointsOnArc(points, *seg)
 
 def checkIfPointsOnLine(points, A, B) -> list:
     """Returns all points found on the line terminated by points A and B. All parameters
@@ -165,7 +165,7 @@ def checkIfPointsOnLine(points, A, B) -> list:
     maxx = max(A[0], B[0])
     miny = min(A[1], B[1])
     maxy = max(A[1], B[1])
-    i_points = [p for p in points if p[0] > minx and p[0] < maxx and p[1] > miny and p[1] < maxy]
+    i_points = [p for p in points if p is not None and p[0] >= minx and p[0] <= maxx and p[1] >= miny and p[1] <= maxy]
     return i_points
 
 def checkIfPointsOnArc(points, A, B, C) -> list:
@@ -183,26 +183,22 @@ def checkIfPointsOnArc(points, A, B, C) -> list:
 
 def generatePointOnArc(A, B, center):
     """Generates a point on the arc centered at the inputted center and terminated
-    between points A and B."""
-    R = np.sqrt((A[0] - center[0])^2 + (A[1] - center[1]^2))
+    between points A and B. Note that the arc connects CCW from A to B."""
+    R = np.sqrt((A[0] - center[0])**2 + (A[1] - center[1]**2))
     center = np.array(center)
     A0, B0 = [A, B] - center
-    theta_min, theta_max = [calcAngleToAxis(point) for point in [A0, B0]]
-    theta = (theta_max - theta_min) / 2 #Halfway between A and B
+    theta_A, theta_B = [calcAngleToAxis(*point) for point in [A0, B0]]
+    if theta_A > theta_B: theta_B += 2*np.pi
+    theta = (theta_B - theta_A) / 2 + theta_A #Halfway between A and B
     x = R*np.cos(theta) + center[0]
     y = R*np.sin(theta) + center[1]
     return [x, y]
-
-def calcAvgDistanceBetweenCurves(c1: function, c2: function, a, b):
-    """Returns the distance between the two curves c1 and c2 between the boundary (a, b).
-    Both functions must be functions of a single variable."""
-    return quad(lambda a : c1(a) - c2(a), a, b) / (b - a)
 
 def checkPointInCircle(point, center, radius) -> bool:
     """Checks if the point (array_like, length 2) is located in the circle (array_like, length 2)
      defined with the given center and radius."""
     x, y = [point[i] - center[i] for i in range(len(point))]
-    radius_point = np.sqrt(x^2 + y^2) + np.finfo(float).eps
+    radius_point = np.sqrt(x**2 + y**2) + np.finfo(float).eps
     return radius_point < radius
 
 def seg2PolarFun(seg, center):
@@ -232,11 +228,11 @@ def arc2PolarFun(seg, center):
         return lambda theta : [temp1(theta) + temp2(theta)]
     return lambda theta : [temp1(theta) + a*temp2(theta) for a in [-1, 1]]
 
-def calcBoundingAngles(seg, center):
+def calcBoundingAngles(seg, center=[0,0]):
     """Returns the minimum and maximum angular coordinate for the segment in a polar
     field with the origin at the center."""
     seg = [pnt - np.array(center) for pnt in seg]
-    if len(seg == 2): 
+    if len(seg) == 2: 
         thetas = [calcAngleToAxis(*pnt) for pnt in seg]
     else: 
         h, k = calcCircleCenter(*seg)

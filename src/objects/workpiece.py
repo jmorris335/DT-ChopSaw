@@ -9,8 +9,11 @@
 """
 
 import numpy as np
-import src.aux.geometry as geo
+from matplotlib.patches import PathPatch, Arc
+from matplotlib.path import Path
 
+import src.aux.geometry as geo
+import src.gui.gui_support as gui
 from src.aux.support import findDefault
 
 class Workpiece:
@@ -65,7 +68,7 @@ class Workpiece:
     def __init__(self, **kwargs):
         self.E = findDefault(69e9, "E", kwargs)
         self.L = findDefault(1., "L", kwargs)
-        self.path = self.cleanPath(findDefault(list(), "path", kwargs))
+        self.path = self.cleanPath(findDefault(defaultPath(), "path", kwargs))
 
     def cleanPath(self, path: list=None) -> list:
         """
@@ -125,7 +128,25 @@ class Workpiece:
             if a < min_pt: 
                 min_pt = a
         return min_pt
-        
+    
+    def plot(self) -> list:
+        """Returns a matplotlib PathPatch object defining the boundary of the object."""
+        vertices = [self.path[0][0]]
+        codes = [Path.MOVETO]
+        for seg in self.path:
+            if len(seg) == 2: 
+                vertices.append(list(seg[1]))
+                if self.path.index(seg) != len(self.path)-1: codes.append(Path.LINETO)
+                else: codes.append(Path.CLOSEPOLY)
+            else:
+                center = geo.calcCircleCenter(*seg)
+                radius = geo.calcCircleRadius(seg[0], center)
+                theta1, theta2 = 180 / np.pi * np.array(geo.calcBoundingAngles(seg, center))
+                vertices.extend(list(gui.arc2Bezier(*seg)[1:]))
+                codes.extend(gui.arcCommands())
+        path = Path(vertices, codes)
+        return PathPatch(path)
+
 if __name__ == '__main__':
     # Square, 10 cm wide beam 
     path = list()
@@ -134,3 +155,11 @@ if __name__ == '__main__':
     path.append([[1,1], [0,1]])
     path.append([[0,1], [0,0]]) #Optional to close path
     wkp_square = Workpiece(path=path)
+
+def defaultPath():
+    """Makes the path of a square, 10 cm wide beam."""
+    path = [[[0,0], [1,0]]]
+    path.append([[1,0], [1,1]])
+    path.append([[1,1], [0,1]])
+    path.append([[0,1], [0,0]])
+    return path

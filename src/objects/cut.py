@@ -10,7 +10,7 @@
 
 import numpy as np
 
-from src.aux.support import findDefault
+from src.aux.support import findDefault, loopSlice
 import src.aux.geometry as geo
 from src.objects.chopsaw import ChopSaw
 from src.objects.workpiece import Workpiece
@@ -39,33 +39,19 @@ class Cut():
     ----------
     1. Kapoor, S. G., R. E. DeVor, R. Zhu, R. Gajjela, G. Parakkal, and D. Smithey. “Development of Mechanistic Models for the Prediction of Machining Performance: Model Building Methodology.” Machining Science and Technology 2, no. 2 (December 1, 1998): 213-38. https://doi.org/10.1080/10940349808945669.
     '''
-    def __init__(self, saw=ChopSaw(), workpiece=Workpiece(), **kwargs):
+    def __init__(self, saw=ChopSaw(), wkp=Workpiece(), **kwargs):
         self.id = findDefault("0", "id", kwargs)
 
         # Components
         self.saw = saw
-        self.wkp = workpiece
+        self.wkp = wkp
 
         # Physical Values
         self.alpha_n = findDefault(self.saw.blade.rake, "alpha_n", kwargs)
-        self.t_c = findDefault(self.saw.blade.kerf, "t_c", kwargs)
+        # self.t_c = findDefault(self.saw.blade.kerf, "t_c", kwargs)
 
         # Dyanmic Values
-        self.h = findDefault(self.H, "h", kwargs)
-
-        # Calibration Constants
-        self.a0 = findDefault(0., "a0", kwargs)
-        self.a1 = findDefault(0., "a1", kwargs)
-        self.a2 = findDefault(0., "a2", kwargs)
-        self.a3 = findDefault(0., "a3", kwargs)
-        self.b0 = findDefault(0., "b0", kwargs)
-        self.b1 = findDefault(0., "b1", kwargs)
-        self.b2 = findDefault(0., "b2", kwargs)
-        self.b3 = findDefault(0., "b3", kwargs)
-        temp_K = self.calcPressureCoef(self.a0, self.a1, self.a2, self.a3, self.a4)
-        self.K_fric = findDefault(temp_K, "K_fric", kwargs)
-        temp_K = self.calcPressureCoef(self.b0, self.b1, self.b2, self.b3, self.b4)
-        self.K_norm = findDefault(temp_K, "K_norm", kwargs)
+        # self.h = findDefault(self.H, "h", kwargs)
 
         # Inputs
         self.V = findDefault(self.saw.blade.omega*self.saw.blade.radius, "V", kwargs)
@@ -74,11 +60,28 @@ class Cut():
         self.phi_arm = findDefault(self.saw.arm.phi_arm, "phi_arm", kwargs)
 
         # Outputs
+        self.chip_depth = findDefault(0., "chip_depth", kwargs)
         self.F_radial = findDefault(0., "F_radial", kwargs)
         self.torque_cut = findDefault(0., "torque_cut", kwargs)
 
         # Calculated Values
         self.blade_center = self.saw.bladePosition()
+
+        # Calibration Constants
+        self.a0 = findDefault(0., "a0", kwargs)
+        self.a1 = findDefault(0., "a1", kwargs)
+        self.a2 = findDefault(0., "a2", kwargs)
+        self.a3 = findDefault(0., "a3", kwargs)
+        self.a4 = findDefault(0., "a4", kwargs)
+        self.b0 = findDefault(0., "b0", kwargs)
+        self.b1 = findDefault(0., "b1", kwargs)
+        self.b2 = findDefault(0., "b2", kwargs)
+        self.b3 = findDefault(0., "b3", kwargs)
+        self.b4 = findDefault(0., "b4", kwargs)
+        temp_K = self.calcPressureCoef(self.a0, self.a1, self.a2, self.a3, self.a4)
+        self.K_fric = findDefault(temp_K, "K_fric", kwargs)
+        temp_K = self.calcPressureCoef(self.b0, self.b1, self.b2, self.b3, self.b4)
+        self.K_norm = findDefault(temp_K, "K_norm", kwargs)
 
     def calibrate(self, **kwargs):
         for key, arg in kwargs:
@@ -96,15 +99,13 @@ class Cut():
     def calcPressureCoef(self, c0, c1, c2, c3, c4):
         """Calculates the pressure coefficients for use in Merchant's model using the regression 
         model found in Kapoor et al. (2024)."""
-        temp = c0 + c1*np.log(self.t) + c2*np.log(self.V) + c3*self.alpha_n + c4*np.log(self.V)*np.log(self.t)
+        temp = c0 + c1*np.log(self.chip_depth) + c2*np.log(self.V) + c3*self.alpha_n + c4*np.log(self.V)*np.log(self.chip_depth)
         return np.exp(temp)
     
     def calcCutArea(self):
         """Returns the area of the chip cross section."""
-        arm_h = self.saw.arm.getHeightOfBladeCenter()
-        blade_tip_h = self.saw.blade.radius*np.cos(self.saw.arm.phi_arm)
-        cut_h = self.h - (arm_h - blade_tip_h)
-        return self.t_c * cut_h
+        t_c = self.chip_depth
+        return t_c * self.saw.blade.kerf
     
     def setInputs(self):
         pass
@@ -115,14 +116,15 @@ class Cut():
     def __str__(self):
         """Returns a string describing the object."""
         return "Cut (ID=" + str(self.id) + ")"
-    
-
 
     def step(self):
         """Finds the intersection between the blade and workpiece, calculating the average
         radial height of the intersection, and then restructures the workpiece path to be the
         same as the blade circle where intersecting (removing cut material)."""
         intx_pts, seg_indices = self.findBladeWkpIntxs()
+        if intx_pts is None: 
+            self.chip_depth = 0
+            return
         self.chip_depth = self.calcAverageChipDepth(intx_pts, seg_indices)
         self.restructurePath(intx_pts, seg_indices)
 
@@ -133,11 +135,12 @@ class Cut():
         intx_pts = list()
         seg_indices = list()
         for seg in self.wkp.path:
-            for p in self.findBladeSegIntxs(seg):
+            points = self.findBladeSegIntxs(seg)
+            for p in points:
                 if p is not None: 
                     intx_pts.append(p)
                     seg_indices.append(self.wkp.path.index(seg))
-        if len(intx_pts) < 2: return list()
+        if len(intx_pts) < 2: return None, None
         self.arrangeIntxPointsByInOut(intx_pts, seg_indices)
         return intx_pts, seg_indices
     
@@ -153,13 +156,16 @@ class Cut():
         """Returns the points arranged CCW so that odd points are entry points and even points
         are exit points for the blade passing through the wkp."""
         if self.checkCircleInProfile(self.blade_center, self.saw.blade.radius, 
-                             points[0], points[0], seg_indices[0], seg_indices[0]):
+                             points[0], points[1], seg_indices[0], seg_indices[1]):
             points.insert(0, points[-1])
             del(points[-1])
+            seg_indices.insert(0, seg_indices[-1])
+            del(seg_indices[-1])
         return points
 
     def checkCircleInProfile(self, center, radius, iP1, iP2, seg1_index, seg2_index) -> bool:
-        """Checks if the given circle with given center and radius passes (CCW) inside a segmented 
+        """
+        Checks if the given circle with given center and radius passes (CCW) inside a segmented 
         boundary curve between the intersection points iP1 and iP2, which lie on the two provided 
         segments found at self.wkp.path[seg1_index] and self.wkp.path[seg2_index].
         
@@ -191,27 +197,22 @@ class Cut():
         return D < (radius - np.finfo(float).eps) 
 
     def calcAverageChipDepth(self, intx_pts, seg_indices) -> float:
-        """Construed as the average of the distance between two functions: one for the blade
-        circle and one for the profile path:
-        
-        t_c = 1/n*sum(i=1-n){1 / (b-a) * integral(circle(x) - profile_i(x)dx) }, where a and b are the 
-        endpoints of profile segment i.
-
-        """
+        """Construed as the average of the distance between the blade circle and profile
+        path."""
         profile_heights = list()
         for p in range(len(intx_pts) // 2): #Index to each odd (entry) intersection point
-            profile = self.findIntersectingProfile(intx_pts, seg_indices, p)
+            profile = self.profile2PolarDomain(intx_pts[p:p+2], seg_indices[p:p+2])
             profile_heights.append(self.calcRadialDistanceByPoints(profile))
         return np.mean(profile_heights)
 
-    def findIntersectingProfile(self, intx_pts, seg_indices, p):
+    def profile2PolarDomain(self, intx_pts, seg_indices):
         """Returns a 2D list detailing a closed segment path intersecting the blade circle.
         Each entry in the list is of the form: [<polar segment lambda>, <minimum bounding angle>,
         <maximum bounding angle>]."""
         profile = list()
-        segs = self.wkp.path[seg_indices[p]:seg_indices[p+1]]
-        segs[0] = self.clipSegmentsOutsideCircle(seg[0], intx_pts[p])
-        segs[-1] = self.clipSegmentsOutsideCircle(seg[-1], intx_pts[p+1])
+        segs = loopSlice(self.wkp.path, seg_indices[0], seg_indices[1] + 1)
+        segs[0] = self.clipSegmentsOutsideCircle(segs[0], intx_pts[0])
+        segs[-1] = self.clipSegmentsOutsideCircle(segs[-1], intx_pts[1])
         for seg in segs:
             entry = [geo.seg2PolarFun(seg, self.blade_center)]
             entry.extend(geo.calcBoundingAngles(seg, self.blade_center))
@@ -226,7 +227,8 @@ class Cut():
         return seg
     
     def calcRadialDistanceByPoints(self, profile, n: int=100) -> float:
-        """Calculates the average distance between a profile and the blade circle.
+        """
+        Calculates the average distance between a profile and the blade circle.
         
         Process
         -------
@@ -250,15 +252,14 @@ class Cut():
         profile = sorted(profile, key=lambda l : l[1])
         theta_min = profile[0][1]
         theta_max = max([a[2] for a in profile])
-        engaged_is = [0, 1] #start and ending indices marking which segments are defined at theta
         for theta in np.linspace(theta_min, theta_max, n): #Check if theta is in range
-            while profile[engaged_is[0]][2] > theta: engaged_is[0] += 1
-            while profile[engaged_is[1]-1][1] < theta: engaged_is[1] += 1
-            h.append(self.findRadialHeightAtTheta(profile[slice(*engaged_is)], theta))
+            domain = [p for p in profile if p[2] > theta and p[2] < theta]
+            h.append(self.findRadialHeightAtTheta(domain, theta))
         return np.mean(h)
-    
+
     def findRadialHeightAtTheta(self, profile, theta) -> float:
         """Finds the total height of the chip at the angle theta."""
+        if len(profile) == 0: return self.saw.blade.radius #no intersecting line, bounded by saw
         rs = list() #List of radial heights of the profile at theta
         for a in profile: rs.extend(a[0](theta))
         if len(rs) % 2 == 1: rs.append(self.saw.blade.radius)
@@ -274,4 +275,4 @@ class Cut():
             B = intx_pts[p+1]
             arc = [A, B, geo.generatePointOnArc(A, B, self.blade_center)]
             self.wkp.path[seg_indices[p]:seg_indices[p]+1] = [arc]
-
+        #TODO: Need to figure out way to make sure path is still closed.
