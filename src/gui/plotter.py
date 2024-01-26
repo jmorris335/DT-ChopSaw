@@ -7,37 +7,18 @@ from src.objects.workpiece import Workpiece
 from src.objects.chopsaw import ChopSaw
 
 def plotSawAndWkp(saw: ChopSaw, wkp: Workpiece):
-    # fig, ax = plt.subplots()
     saw_patch = saw.plot()
+    saw_patch .set(facecolor="orange", lw=1, edgecolor="white", label="Saw Blade")
     wkp_patch = wkp.plot()
-    # ax.add_patch(saw_patch)
-    # # ax.add_patch(wkp_patch)
-    # plt.show()
-
-    verts = [
-    (0., 0.),  # left, bottom
-    (0., 1.),  # left, top
-    (1., 1.),  # right, top
-    (1., 0.),  # right, bottom
-    (0., 0.),  # ignored
-    ]
-
-    codes = [
-        Path.MOVETO,
-        Path.LINETO,
-        Path.LINETO,
-        Path.LINETO,
-        Path.CLOSEPOLY,
-    ]
-
-    path = Path(verts, codes)
+    wkp_patch.set(facecolor="silver", lw=3, edgecolor="black", label="Workpiece")
 
     fig, ax = plt.subplots()
-    patch = patches.PathPatch(path, facecolor='orange', lw=2)
-    ax.add_patch(patch)
     ax.add_patch(saw_patch)
-    # ax.add_patch(wkp_patch)
-    ax.set_xlim(-2, 2)
-    ax.set_ylim(-2, 2)
+    ax.add_patch(wkp_patch)
+    ax.axis('equal')
+    ax.legend(loc="lower center", ncols=2)
+    fig.suptitle("Workpiece and Sawblade")
+    subtitle = f"Saw Position: {saw.bladePosition()}"
+    plt.title(subtitle)
     plt.show()
 

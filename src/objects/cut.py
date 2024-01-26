@@ -121,6 +121,7 @@ class Cut():
         """Finds the intersection between the blade and workpiece, calculating the average
         radial height of the intersection, and then restructures the workpiece path to be the
         same as the blade circle where intersecting (removing cut material)."""
+        self.blade_center = self.saw.bladePosition()
         intx_pts, seg_indices = self.findBladeWkpIntxs()
         if intx_pts is None: 
             self.chip_depth = 0
@@ -210,7 +211,7 @@ class Cut():
         Each entry in the list is of the form: [<polar segment lambda>, <minimum bounding angle>,
         <maximum bounding angle>]."""
         profile = list()
-        segs = loopSlice(self.wkp.path, seg_indices[0], seg_indices[1] + 1)
+        segs = self.getSegmentsInsideCircle(seg_indices)
         segs[0] = self.clipSegmentsOutsideCircle(segs[0], intx_pts[0])
         segs[-1] = self.clipSegmentsOutsideCircle(segs[-1], intx_pts[1])
         for seg in segs:
@@ -218,11 +219,27 @@ class Cut():
             entry.extend(geo.calcBoundingAngles(seg, self.blade_center))
             profile.append(entry)
         return profile
+    
+    def getSegmentsInsideCircle(self, seg_indices):
+        """Returns the two segments listed by seg_indices as well as all segments between
+        which are enclosed within the circle."""
+        n, m = seg_indices[0:2]
+        check_pt = self.wkp.path[(n+1) % len(self.wkp.path)][0]
+        isPos = geo.checkPointInCircle(check_pt, self.blade_center, self.saw.blade.radius)
+        dir = [1, -1][isPos]
+        segs = [self.wkp.path[n]]
+        i = m
+        while i != n:
+            segs.append(self.wkp.path[i])
+            i = (i + dir) % len(self.wkp.path)
+        return segs
 
-    def clipSegmentsOutsideCircle(self, seg, intx_pt):
+    def clipSegmentsOutsideCircle(self, seg, intx_pt, outside: bool=False):
         """Clip the portion of the segments found outside blade circle on a single side, biased
         towards the first vertex."""
-        index = int(geo.checkPointInCircle(seg[0], self.blade_center, self.saw.blade.radius))
+        index = not geo.checkPointInCircle(seg[0], self.blade_center, self.saw.blade.radius)
+        #Edited ^not^ up there, haven't proofed it yet.
+        if outside: index = not index
         seg[index] = intx_pt
         return seg
     
@@ -269,10 +286,34 @@ class Cut():
         """Deletes each segment in the workpiece path identified as starting at an odd index in
         seg_indices and ending at the following even index in seg_indices. Replaces these segments
         with a single arc that starts at the corresponding intersection points and is centered at the
-        saw blade."""
+        saw blade. Clips intersecting segments to intersection points."""
+        num_segs = len(self.wkp.path)
         for p in range(len(intx_pts) // 2):
-            A = intx_pts[p]
-            B = intx_pts[p+1]
-            arc = [A, B, geo.generatePointOnArc(A, B, self.blade_center)]
-            self.wkp.path[seg_indices[p]:seg_indices[p]+1] = [arc]
-        #TODO: Need to figure out way to make sure path is still closed.
+            p_i_pts = intx_pts[p:p+2]
+            n, m = seg_indices[p:p+2]
+
+            # Check if point on next segment is in the blade circle. If so, you can figure out the direction.
+            u, v = ( (n+1) % num_segs, (m-1) % num_segs )
+            if geo.checkPointInCircle(self.wkp.path[u][0], self.blade_center, self.saw.blade.radius):
+                u, v = ( (n-1) % num_segs, (m+1) % num_segs )
+
+            # Clip intersecting segments
+            self.wkp.path[n] = [p_i_pts[0], self.wkp.path[u][0]]
+            self.wkp.path[m] = [self.wkp.path[v][1], p_i_pts[1]]
+
+            #Delete any enclosed segments
+            if n != m:
+                # Figure out which direction is the next enclosed segment
+                next_pt = self.wkp.path[(n+1) % num_segs][0]
+                isPos = geo.checkPointInCircle(next_pt, self.blade_center, self.saw.blade.radius)
+                dir = [-1, 1][isPos]
+                i = (n + dir) % num_segs
+                while i != m:
+                    del(self.wkp.path[i])
+                    if not isPos: i -= 1
+                    i = i % len(self.wkp.path) #increments automatically since len(path) decreases
+
+            # Insert arc at p
+            arc = [p_i_pts[1], p_i_pts[0], geo.generatePointOnArc(*p_i_pts, self.blade_center)]
+            self.wkp.path.insert(seg_indices[p], arc)
+

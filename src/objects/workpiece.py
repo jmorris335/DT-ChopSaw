@@ -9,7 +9,7 @@
 """
 
 import numpy as np
-from matplotlib.patches import PathPatch, Arc
+from matplotlib.patches import PathPatch
 from matplotlib.path import Path
 
 import src.aux.geometry as geo
@@ -100,8 +100,8 @@ class Workpiece:
         miny = self.findMinimumCoord(path, index=1)
         for seg in path:
             for point in seg:
-                point[0] += minx
-                point[1] += miny
+                point[0] -= minx
+                point[1] -= miny
         return path
 
     def findMinimumCoord(self, path: list=None, index: int=0):
@@ -129,20 +129,16 @@ class Workpiece:
                 min_pt = a
         return min_pt
     
-    def plot(self) -> list:
+    def plot(self) -> PathPatch:
         """Returns a matplotlib PathPatch object defining the boundary of the object."""
         vertices = [self.path[0][0]]
         codes = [Path.MOVETO]
         for seg in self.path:
             if len(seg) == 2: 
                 vertices.append(list(seg[1]))
-                if self.path.index(seg) != len(self.path)-1: codes.append(Path.LINETO)
-                else: codes.append(Path.CLOSEPOLY)
+                codes.append(Path.LINETO)
             else:
-                center = geo.calcCircleCenter(*seg)
-                radius = geo.calcCircleRadius(seg[0], center)
-                theta1, theta2 = 180 / np.pi * np.array(geo.calcBoundingAngles(seg, center))
-                vertices.extend(list(gui.arc2Bezier(*seg)[1:]))
+                vertices.extend(gui.arc2Bezier(*seg)[1:])
                 codes.extend(gui.arcCommands())
         path = Path(vertices, codes)
         return PathPatch(path)
