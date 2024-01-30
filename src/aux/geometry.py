@@ -12,6 +12,8 @@
 import numpy as np
 from scipy.integrate import quad 
 
+eps = np.finfo(float).eps
+
 def calcCircleRadius(A, center) -> float:
     """Calculates the radius of a circle where A is a point on the circle and C is the center
     of the circle."""
@@ -53,14 +55,15 @@ def calcAngleToAxis(x, y, index: int=0) -> float:
     Returns 0 if the point is located on the origin.
     """
     index = int(min(3, max(0, index)))
-    if abs(x) <= np.finfo(float).eps:
+    if abs(x) <= eps:
         if y == 0.: return 0. #point on the origin
         else: theta = np.pi/2 if y >= 0 else 3*np.pi/2
-    elif abs(y) <= np.finfo(float).eps: 
+    elif abs(y) <= eps: 
         theta = 0 if x >= 0 else np.pi
-    else: theta = np.arctan(y/x)
+    else: theta = np.arctan2(y,x)
     theta -= np.pi/2 * index
-    if (theta + np.finfo(float).eps) < 0: theta += 2*np.pi
+    if (theta + eps) < 0: 
+        theta += 2*np.pi
     return theta
 
 def findMinimumCoordOnLine(seg, index: int=0):
@@ -108,7 +111,7 @@ def findCircleLineIntersections(U, V, A=None, B=None, C=None, center=None, radiu
     a = 1 + m
     b = 2 * m * (U[1] - m * U[0] - center[1]) - 2 * center[0]
     c = (U[1] - m*U[0] - center[1])**2 + center[0]**2 - radius**2
-    if b**2 - 4*a*c <= np.finfo(float).eps: return None, None #Either no intersections or tangent point
+    if b**2 - 4*a*c <= eps: return None, None #Either no intersections or tangent point
     x = np.roots([a, b, c])
     y = m * x + U[1] - m * U[0]
     return ([x[0], y[0]], [x[1], y[1]])
@@ -175,38 +178,39 @@ def checkIfPointsOnArc(points, A, B, C) -> list:
     for p in points:
         thetas = thetas_arc + [calcAngleToAxis(*p)]
         thetas.sort()
-        dist = abs(thetas.index(thetaA) - thetas.index(thetaB))
-        if dist != 3 or dist != 1: i_points.append(p)
+        index_distance = abs(thetas.index(thetaA) - thetas.index(thetaB))
+        if index_distance != 3 or index_distance != 1: i_points.append(p)
     return i_points
 
 def generatePointOnArc(A, B, center):
     """Generates a point on the arc centered at the inputted center and terminated
     between points A and B. Note that the arc connects CCW from A to B."""
-    shiftPoints([A, B], center, inverse=True)
-    R = np.sqrt(A[0]**2 + A[1]**2)
-    center = np.array(center)
+    [A_sh, B_sh] = shiftPoints([A, B], center, inverse=True, copy=True)
+    R = np.sqrt(A_sh[0]**2 + A_sh[1]**2)
 
-    theta_A, theta_B = [calcAngleToAxis(*point) for point in [A, B]]
+    theta_A, theta_B = [calcAngleToAxis(*point) for point in [A_sh, B_sh]]
     if theta_A > theta_B: theta_B += 2*np.pi
     theta = (theta_B - theta_A) / 2 + theta_A #Halfway between A and B
     x = R*np.cos(theta) + center[0]
     y = R*np.sin(theta) + center[1]
     return [x, y]
 
-def shiftPoints(pts, shift, inverse: bool=False):
+def shiftPoints(points, shift, inverse: bool=False, copy: bool=False):
     """Shifts the points the negative values of the coordinates in shift. If inverse is 
     True, then the points are translated by the negative of the shift coordinates."""
-    if not hasattr(pts, '__len__'): pts = [pts]
+    if not hasattr(points[0], '__len__'): points = [points]
+    pts = [p[:] for p in points] if copy else points #deepcopy
     for pt in pts:
         for i in range(len(pt)):
-            if len(shift) > i: pt[i] += shift[i] * [-1, 1][inverse]
+            if len(shift) > i: 
+                pt[i] += shift[i] * [1, -1][inverse]
     return pts
         
 def checkPointInCircle(point, center, radius) -> bool:
     """Checks if the point (array_like, length 2) is located in the circle (array_like, length 2)
      defined with the given center and radius."""
     x, y = [point[i] - center[i] for i in range(len(point))]
-    radius_point = np.sqrt(x**2 + y**2) + np.finfo(float).eps
+    radius_point = np.sqrt(x**2 + y**2) + eps
     return radius_point < radius
 
 def seg2PolarFun(seg, center):
@@ -236,36 +240,49 @@ def arc2PolarFun(seg, center):
         return lambda theta : [temp1(theta) + temp2(theta)]
     return lambda theta : [temp1(theta) + a*temp2(theta) for a in [-1, 1]]
 
-def calcBoundingAngles(seg, arc_center=[0,0]):
+def calcBoundingAngles(seg, field_center=[0,0]):
     """Returns the minimum and maximum angular coordinate for the segment in a polar
     field with the origin at center."""
-    shiftPoints(seg, arc_center, inverse=True)
-    if len(seg) == 2: return calcLineSpanningAngles(*seg)
+    seg_sh = shiftPoints(seg, field_center, inverse=True, copy=True)
+    if len(seg_sh) == 2: return calcLineSpanningAngles(*seg_sh)
 
-    thetaA, thetaB, thetaC = map(lambda s : calcAngleToAxis(*s), seg)
+    thetaA, thetaB, thetaC = map(lambda s : calcAngleToAxis(*s), seg_sh)
     bounds = calcArcSpanningAngles(thetaA, thetaB, thetaC)
-    arc_radius = calcCircleRadius(seg[0], arc_center)
+    arc_center = calcCircleCenter(*seg_sh)
+    arc_radius = calcCircleRadius(seg_sh[0], arc_center)
 
-    if checkPointInCircle((0, 0), arc_center, arc_radius): return bounds
+    if checkPointInCircle(field_center, arc_center, arc_radius):
+        return bounds
     else: #Possible bounds are tangent arc-origin radial lines and arc endpoints
-        phi, r0 = xy2polar(*arc_center)
-        circle_bounds = calcCircleSpanningAngles((phi, r0), arc_radius)
-        r_bound = r0^2 - arc_radius^2 #radial distance to point tangent on arc-circle
-        bounds.extend(checkIfPointsOnArc([polar2xy(r_bound, pt) for pt in circle_bounds], *seg))
+        # TODO: Recalculate arc endpoints to get angle wrt to world origin [DONE, NOT CHECKED]
+        r0, phi = xy2polar(*arc_center)
+        r_bound = r0**2 - arc_radius**2 #radial distance from field_center to point on arc-circle
+        for theta in bounds: #Convert arc-center endpoints to field_center coordinates
+            pnt = polar2xy(arc_radius, theta)
+            shiftPoints(pnt, field_center)
+            phi = xy2polar(*pnt)[1]
+            theta = phi
+        circle_bounds = calcCircleSpanningAngles((r0, phi), arc_radius)
+        xy_bounds = [polar2xy(r_bound, theta) for theta in circle_bounds]
+        arc_xy_points = checkIfPointsOnArc(xy_bounds, *seg_sh)
+        if arc_xy_points is not None:
+            arc_polar_bounds = [xy2polar(*pt) for pt in arc_xy_points]
+        bounds.extend(polar_pt[1] for polar_pt in arc_polar_bounds)
+        #TODO: Clean comparison so that theta is 0<theta<2pi
     return [min(bounds), max(bounds)]
 
 def calcLineSpanningAngles(A, B):
     """Returns two angles detailing the angular sweep of the line between points A and B, so 
     that the domain of the line in a polar field lies between the two angles."""
     bounds = sorted([calcAngleToAxis(*pnt) for pnt in [A, B]])
-    if abs(bounds[1] - bounds[0]) > np.pi + np.finfo(float).eps:
+    if abs(bounds[1] - bounds[0]) > np.pi + eps:
         bounds[bounds.index(min(bounds))] += 2*np.pi #Check lines that span more than pi radians
     return bounds
 
 def calcArcSpanningAngles(thetaA, thetaB, thetaC) -> list:
     """Returns two angles detailing the angular sweep of the arc, so that the domain of the arc in 
     a polar field with the origin at the arc center lies between the two angles. The arc is defined
-    as having endpoints at angles thetaA and thetaB, with thetaC and arbitrary angle to a point 
+    as having endpoints at angles thetaA and thetaB, with thetaC an arbitrary angle to a point 
     between them."""
     thetas = sorted([thetaA, thetaB, thetaC])
     bounds = [thetas[(thetas.index(thetaC) - 1) % len(thetas)]] #endpoint below C
@@ -299,8 +316,8 @@ def arcIsCCW(A, B, C, center=None):
     """Returns true if the direction of the arc (from A through C to B) is counter 
     clockwise."""
     if center is None: center = calcCircleCenter(A, B, C)
-    shiftPoints([A, B, C], center, inverse=True)
-    thetaA, thetaB, thetaC = map(lambda s : calcAngleToAxis(*s), [A, B, C])
+    [A_sh, B_sh, C_sh] = shiftPoints([A, B, C], center, inverse=True, copy=True)
+    thetaA, thetaB, thetaC = map(lambda s : calcAngleToAxis(*s), [A_sh, B_sh, C_sh])
     thetas = sorted([thetaA, thetaB, thetaC])
     a, c = map(thetas.index, [thetaA, thetaC])
     if (c - a) % 3 == 1: return True #C follows A going CCW

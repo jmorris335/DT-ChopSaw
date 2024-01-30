@@ -19,7 +19,8 @@ def arc2Bezier(A, B, C):
                           [R*np.cos(theta), R*np.sin(theta)]])
     cntrl_pts = np.matmul(cntrl_pts, [[np.cos(-theta_min), -np.sin(-theta_min)],
                                       [np.sin(-theta_min), np.cos(-theta_min)]]) #Rotate to arc position
-    cntrl_pts += [center]*4 #Translate to original origin
+    geo.shiftPoints(cntrl_pts, center)
+    # TODO: Delete >>> cntrl_pts += [center]*4 #Translate to original origin
     cntrl_pts = [list(pt) for pt in cntrl_pts]
     # Flip order of points if CW versus CCW
     if not geo.arcIsCCW(A, B, C, center):

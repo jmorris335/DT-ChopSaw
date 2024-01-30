@@ -123,7 +123,7 @@ class Cut():
         same as the blade circle where intersecting (removing cut material)."""
         self.blade_center = self.saw.bladePosition()
         intx_pts, seg_indices = self.findBladeWkpIntxs()
-        if intx_pts is None: 
+        if intx_pts is None:
             self.chip_depth = 0
             return
         self.chip_depth = self.calcAverageChipDepth(intx_pts, seg_indices)
@@ -190,7 +190,7 @@ class Cut():
         seg1 = self.wkp.path[seg1_index]
         if seg1_index != seg2_index: check_pt = seg1[1]
         elif len(seg1) == 2: #segment line that intersects the primary arc twice
-            check_pt = [.5 * (iP2(a) + iP1(a)) for a in range(2)]
+            check_pt = [.5 * (iP2[a] + iP1[a]) for a in range(2)]
         else: #segment arc that intersects the primary arc twice
             seg_cntr = geo.calcCircleCenter(*seg1)
             check_pt = geo.generatePointOnArc(seg1[0], seg1[1], seg_cntr)
@@ -293,13 +293,21 @@ class Cut():
             n, m = seg_indices[p:p+2]
 
             # Check if point on next segment is in the blade circle. If so, you can figure out the direction.
+            # u -> n, m -> v (CCW)
             u, v = ( (n+1) % num_segs, (m-1) % num_segs )
             if geo.checkPointInCircle(self.wkp.path[u][0], self.blade_center, self.saw.blade.radius):
                 u, v = ( (n-1) % num_segs, (m+1) % num_segs )
 
             # Clip intersecting segments
-            self.wkp.path[n] = [p_i_pts[0], self.wkp.path[u][0]]
-            self.wkp.path[m] = [self.wkp.path[v][1], p_i_pts[1]]
+            #TODO: If the blade intersects a single segment, split the segment into two parts
+            n_seg = [p_i_pts[0], self.wkp.path[u][0]]
+            m_seg = [self.wkp.path[v][1], p_i_pts[1]]
+            
+            self.wkp.path[n] = n_seg
+            if n == m:
+                self.wkp.path.insert((m)%len(self.wkp.path), m_seg)
+            else:
+                self.wkp.path[m] = m_seg
 
             #Delete any enclosed segments
             if n != m:
@@ -313,7 +321,9 @@ class Cut():
                     if not isPos: i -= 1
                     i = i % len(self.wkp.path) #increments automatically since len(path) decreases
 
-            # Insert arc at p
-            arc = [p_i_pts[1], p_i_pts[0], geo.generatePointOnArc(*p_i_pts, self.blade_center)]
-            self.wkp.path.insert(seg_indices[p], arc)
+            # Insert arc at n
+            point_on_arc = geo.generatePointOnArc(*p_i_pts, self.blade_center)
+            arc = [p_i_pts[1], p_i_pts[0], point_on_arc]
+            arc_start_i = [pt[0] for pt in self.wkp.path].index(arc[1])
+            self.wkp.path.insert(arc_start_i, arc)
 

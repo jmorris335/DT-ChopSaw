@@ -8,7 +8,7 @@ from src.gui.plotter import *
 import time
 
 def cut_test():
-    arm = Arm(h0=1.0, x_arm=0.0)
+    arm = Arm(h0=1.3, x_arm=0.5)
     blade = Blade(radius=0.50)
     # wkp = makeCircularWkp()
     wkp = makeSquareWkp()
@@ -31,7 +31,7 @@ def makeSquareWkp() -> Workpiece:
 def makeCircularWkp() -> Workpiece:
     """ Returns circular, 10 cm diameter beam."""
     path = [
-        [[-.1, 0.], [.1, 0.], [0., -.1]],
-        [[.1, 0.], [-.1, 0.], [0., .1]]
+        [[-1, 0.], [1, 0.], [0., -1]],
+        [[1, 0.], [-1, 0.], [0., 1]]
     ]
     return Workpiece(path=path)
