@@ -5,13 +5,11 @@ from src.objects.blade import Blade
 from src.objects.structure import Arm
 from src.gui.plotter import *
 
-import time
-
 def cut_test():
-    arm = Arm(h0=1.3, x_arm=0.5)
+    arm = Arm(h0=1, x_arm=0)
     blade = Blade(radius=0.50)
-    # wkp = makeCircularWkp()
-    wkp = makeSquareWkp()
+    wkp = makeCircularWkp()
+    # wkp = makeSquareWkp()
     saw = ChopSaw(blade=blade, arm=arm)
     cut = Cut(saw=saw, wkp=wkp)
     cut.step()

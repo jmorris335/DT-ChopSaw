@@ -123,9 +123,9 @@ def vertLineCircleIntersections(center, R, x):
     return ([x, y[0]], [x, y[1]])
 
 def findCircleArcIntersections(U, V, W, A=None, B=None, C=None, center=None, radius=None):
-    """Returns where the circle that goes through points A, B, C (or has the defined center and
-    radius) and intersects the circle defined that passes through the points U, V, W. All 
-    parameters must have a length >= 2, where the first two elements represent the x and y coordinates.
+    """Returns where the circle that goes through points A, B, C (or has the defined center and radius) 
+    and intersects the circle that passes through the points U, V, W. All parameters must 
+    have a length >= 2, where the first two elements represent the x and y coordinates.
     
     Source: http://ambrnet.com/TrigoCalc/Circles2/circle2intersection/CircleCircleIntersection.htm"""
     if center is None: 
@@ -138,14 +138,15 @@ def findCircleArcIntersections(U, V, W, A=None, B=None, C=None, center=None, rad
 def findCircleCircleIntersections(a, b, c, d, r0, r1):
     """Finds the intersections of the two circles located at (a, b) and (c, d) with radius
     equal to (r0, r1)."""
-    #TODO: Check if circles are identical
+    if abs(r0 - r1) < eps and abs(a - c) < eps and abs(b - d) < eps: #Check if circles are identical
+        return None, None
     D = np.sqrt((c-a)**2 + (d-b)**2)
     if r0+r1 <= D or D <= abs(r0-r1): return None, None #No intersection
     tempR = r0**2 - r1**2
     delta = np.sqrt((D+r0+r1)*(D+r0-r1)*(D-r0+r1)*(-D+r0+r1)) / 4
     x = (a+c)/2 + (c-a)*tempR/2/D**2 + np.array([1,-1]) * 2*(b-d)*delta/D**2
     y = (b+d)/2 + (d-b)*tempR/2/D**2 + np.array([-1,1]) * 2*(a-c)*delta/D**2
-    return ([x[0], y[0]], [x[1], y[1]])
+    return [x[0], y[0]], [x[1], y[1]]
 
 def checkIfPointsOnSegment(points, seg: list=None, A=None, B=None, C=None) -> list:
     """Returns points found on the line or arc terminated by points A and B. The segment is 
@@ -168,18 +169,30 @@ def checkIfPointsOnLine(points, A, B) -> list:
     i_points = [p for p in points if p is not None and p[0] >= minx and p[0] <= maxx and p[1] >= miny and p[1] <= maxy]
     return i_points
 
-def checkIfPointsOnArc(points, A, B, C) -> list:
+def checkIfPointsOnArc(points, A, B, C, arc_center=None) -> list:
     """Returns points found on the arc terminated by points A and B. C is an arbitrary point 
     on the arc. All parameters should be arrays of length two, where the elements represent 
-    (x, y) coordinates."""
+    (x, y) coordinates.
+
+    Process
+    -------
+    1. Find the angle (theta) between the positive horizontal axis and each of the four points
+    on the curve: A, B, C, and the point to check, P.
+    1. Sort the angles by size.
+    1. If theta(C) and theta(P) are situated next to each other in the sorted array then theta(P)
+    is within the angular domain of the arc. Otherwise theta(P) is outside the domain.
+    """
     i_points = list()
-    thetas_arc = [calcAngleToAxis(*a) for a in (A, B, C)]
-    thetaA, thetaB = thetas_arc[0:2]
+    if arc_center is None: arc_center = calcCircleCenter(A, B, C)
+    A_sh, B_sh, C_sh = shiftPoints([A, B, C], arc_center, inverse=True, copy=True)
+    thetas_arc = [calcAngleToAxis(*a) for a in (A_sh, B_sh, C_sh)]
+    thetaC = thetas_arc[2]
     for p in points:
-        thetas = thetas_arc + [calcAngleToAxis(*p)]
-        thetas.sort()
-        index_distance = abs(thetas.index(thetaA) - thetas.index(thetaB))
-        if index_distance != 3 or index_distance != 1: i_points.append(p)
+        p_sh = shiftPoints(p, arc_center, inverse=True, copy=True)
+        thetaP = calcAngleToAxis(*p_sh)
+        thetas = sorted(thetas_arc + [thetaP])
+        index_distance = abs(thetas.index(thetaC) - thetas.index(thetaP))
+        if index_distance != 2: i_points.append(p)
     return i_points
 
 def generatePointOnArc(A, B, center):
@@ -204,6 +217,7 @@ def shiftPoints(points, shift, inverse: bool=False, copy: bool=False):
         for i in range(len(pt)):
             if len(shift) > i: 
                 pt[i] += shift[i] * [1, -1][inverse]
+    if len(pts) == 1: return pt
     return pts
         
 def checkPointInCircle(point, center, radius) -> bool:

@@ -148,9 +148,9 @@ class Cut():
     def findBladeSegIntxs(self, seg):
         """Finds the intersection points between the saw blade and a given line or arc segment."""
         if len(seg) < 3:
-            points = geo.findCircleLineIntersections(seg[0], seg[1], center=self.blade_center, radius=self.saw.blade.radius)
+            points = geo.findCircleLineIntersections(*seg, center=self.blade_center, radius=self.saw.blade.radius)
         else:
-            points= geo.findCircleArcIntersections(seg[0], seg[1], seg[2], center=self.blade_center, radius=self.saw.blade.radius)
+            points= geo.findCircleArcIntersections(*seg, center=self.blade_center, radius=self.saw.blade.radius)
         return geo.checkIfPointsOnSegment(points, seg=seg)
     
     def arrangeIntxPointsByInOut(self, points, seg_indices):
@@ -293,19 +293,21 @@ class Cut():
             n, m = seg_indices[p:p+2]
 
             # Check if point on next segment is in the blade circle. If so, you can figure out the direction.
-            # u -> n, m -> v (CCW)
+            # n -> u, v -> m (CCW)
             u, v = ( (n+1) % num_segs, (m-1) % num_segs )
             if geo.checkPointInCircle(self.wkp.path[u][0], self.blade_center, self.saw.blade.radius):
                 u, v = ( (n-1) % num_segs, (m+1) % num_segs )
 
             # Clip intersecting segments
-            #TODO: If the blade intersects a single segment, split the segment into two parts
             n_seg = [p_i_pts[0], self.wkp.path[u][0]]
             m_seg = [self.wkp.path[v][1], p_i_pts[1]]
+
+            if len(self.wkp.path[n]) == 3: n_seg.append(self.wkp.path[n][2])
+            if len(self.wkp.path[m]) == 3: m_seg.append(self.wkp.path[m][2])
             
-            self.wkp.path[n] = n_seg
-            if n == m:
-                self.wkp.path.insert((m)%len(self.wkp.path), m_seg)
+            self.wkp.path[n] = n_seg 
+            if n == m: #Make a new segment if both intersections are through a single segment
+                self.wkp.path.insert(m, m_seg)
             else:
                 self.wkp.path[m] = m_seg
 
