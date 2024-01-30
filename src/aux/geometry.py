@@ -33,7 +33,7 @@ def calcCircleCenter(A, B, C):
     denom = 2 * (A[1]*B[0] - A[0]*B[1] - A[1]*C[0] + A[0]*C[1] - B[0]*C[1] + B[1]*C[0])
     x = sumfun(A, B, C, x=1) / denom
     y = sumfun(A, B, C, x=0) / denom
-    return (x, y)
+    return [x, y]
 
 def calcAngleToAxis(x, y, index: int=0) -> float:
     """Calculates the angle (in radians) between the vector formed by the origin and the 
@@ -133,7 +133,7 @@ def findCircleArcIntersections(U, V, W, A=None, B=None, C=None, center=None, rad
         radius = calcCircleRadius(A, center)
     center_arc = calcCircleCenter(U, V, W)
     radius_arc = calcCircleRadius(U, center_arc)
-    return findCircleCircleIntersections(center[0], center[1], center_arc[0], center[1], radius, radius_arc)
+    return findCircleCircleIntersections(center[0], center[1], center_arc[0], center_arc[1], radius, radius_arc)
 
 def findCircleCircleIntersections(a, b, c, d, r0, r1):
     """Finds the intersections of the two circles located at (a, b) and (c, d) with radius

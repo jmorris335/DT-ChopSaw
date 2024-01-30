@@ -6,15 +6,15 @@ from src.objects.structure import Arm
 from src.gui.plotter import *
 
 def cut_test():
-    arm = Arm(h0=1, x_arm=0)
+    arm = Arm(h0=.6, x_arm=.1)
     blade = Blade(radius=0.50)
     wkp = makeCircularWkp()
     # wkp = makeSquareWkp()
     saw = ChopSaw(blade=blade, arm=arm)
     cut = Cut(saw=saw, wkp=wkp)
     cut.step()
-    # saw.arm.x_arm += 0.1
-    # cut.step()
+    saw.arm.x_arm += 0.4
+    cut.step()
     plotSawAndWkp(saw, wkp)
 
 def makeSquareWkp() -> Workpiece:
