@@ -12,7 +12,8 @@
 
 from enum import Enum
 import numpy as np
-from matplotlib.patches import Circle
+from matplotlib.patches import Circle, PathPatch
+from matplotlib.path import Path
 
 from src.aux.support import findDefault
 from src.aux.dynamic import DynamicBlock
@@ -146,14 +147,25 @@ class Blade(DynamicBlock):
 
     def plot(self, x=0., y=0.):
         """Returns list of matplotlib patch object of entity."""
-        patch = Circle((x, y), self.radius_blade)
-        patch.set(facecolor="orange", lw=1, edgecolor="white", label="Saw Blade")
-        return [patch]
+        blade_patch = Circle((x, y), self.radius_blade)
+        blade_patch.set(fc="orange", lw=1, ec="black", label="Saw Blade")
+        radial_line = PathPatch(self.plotRadialLine(x, y), lw=2, ec='k')
+        return [blade_patch, radial_line]
+    
+    def plotRadialLine(self, x0=0., y0=0.):
+        """Returns a path of radial line from center of blade to a point on the radius
+        rotated by theta_blade."""
+        x1 = x0 + self.radius_blade * np.cos(self.theta_blade)
+        y1 = y0 + self.radius_blade * np.sin(self.theta_blade)
+        vertices = [[x0, y0], [x1, y1]]
+        codes = [Path.MOVETO, Path.LINETO]
+        return Path(vertices, codes)
     
     def updatePatches(self, x=0., y=0.):
         """Updates patch objects of entity."""
-        blade = self.patches[0]
-        blade.set(center=(x, y))
+        self.patches[0].set(center=(x, y))
+        radial_line_path = self.plotRadialLine(x, y)
+        self.patches[1].set_path(radial_line_path)
 
     def __str__(self):
         """Returns a string describing the object."""

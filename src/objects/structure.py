@@ -83,13 +83,13 @@ class Arm:
     def plotLinearArmPatch(self, x, y):
         """Returns matplotlib patch object for linear arm."""
         return Rectangle(xy=(x, y), width=self.l0_slider, height=self.width_arm, 
-                         animated=True, fc="black", ec='k', lw=2, label='Static Arm')
+                         animated=True, fc="black", ec='k', lw=1, label='Static Arm')
     
     def plotSliderArmPatch(self, x, y):
         """Returns matplotlib patch object for slider arm."""
         return Rectangle(xy=(x + self.l0_slider, y + self.width_arm * 0.1), 
                          width=self.x_arm, height=self.width_arm * 0.8, 
-                         animated=True, fc="white", ec='k', lw=2, label='Sliding Arm')
+                         animated=True, fc="white", ec='k', lw=1, label='Sliding Arm')
     
     def plotAngularArmPatch(self, x, y):
         """Returns matplotlib patch object for angular arm."""
@@ -97,7 +97,7 @@ class Arm:
         y_ang = y + self.h0_arm
         patch = Rectangle(xy=(x_ang, y_ang), width=self.l0_rotating_arm, 
                           height=self.width_arm, rotation_point=(x_ang, y_ang + .5*self.width_arm),
-                          animated=True, fc="yellow", ec="k", lw=2, label='Rotating Arm')
+                          animated=True, fc="yellow", ec="k", lw=1, label='Rotating Arm')
         patch.set_angle(self.theta_arm * 180 / np.pi)
         return patch
     
