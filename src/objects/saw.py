@@ -1,6 +1,6 @@
 """
-| File: chopsaw.py 
-| Info: Presents the state-model for a radial-arm chop saw. 
+| File: saw.py 
+| Info: Presents the state-model for a radial-arm miter saw. 
 | Author: John Morris, jhmrrs@clemson.edu  
 | Organization: Product Lifecycle Management Center at Clemson University, plmcenter@clemson.edu  
 | Permission: Copyright (C) 2023, John Morris. All rights reserved. Should not be reproduced, edited, sourced, or utilized without written permission from the author or organization
@@ -8,15 +8,13 @@
 |- 0.1, 6 Dec 2023: Initialized
 """
 import numpy as np
-from matplotlib.patches import Circle
 
 from src.aux.support import findDefault
 from src.objects.blade import Blade
 from src.objects.motor import Motor
 from src.objects.structure import Arm, Table
-from src.aux.dynamic import DynamicBlock
 
-class ChopSaw:
+class Saw:
     """
     Aggregate state model of a ChopSaw
     
@@ -62,26 +60,36 @@ class ChopSaw:
         self.age = findDefault(0, "age", kwargs)
         self.power_on = findDefault(False, "power_on", kwargs)
 
+        # GUI operations
+        self.objects = [blade, motor, arm, table]
+        self.patches = blade.patches + arm.patches
+        self.updatePatches()
+
     def powerSwitchOn(self, power_on: bool=True):
         self.power_on = power_on
 
+    def set(self, **kwargs):
+        """Updates parameters in the saw."""
+        for object in self.objects:
+            object.set(**kwargs)
+
     def step(self):
         if self.power_on: self.motor.applyVoltage(18)
-        self.motor.applyLoad()
-        pass
+        for object in self.objects:
+            object.step()
 
-    # Maybe delete this?
+    def updatePatches(self):
+        x = - self.arm.l0_slider
+        self.arm.updatePatches()
+        self.blade.updatePatches(*self.bladePosition())
+
     def bladePosition(self):
         """Returns the position of center of the blade in workpiece coordinates where (0,0) indicates 
         the center, lowest point on the cutting path, defined by the saw table. See module notes."""
-        x = self.arm.x_arm
-        y = self.arm.h0 + self.arm.l0 * (np.sin(self.arm.theta_arm) * np.cos(self.arm.phi_arm))
+        x = self.arm.x_arm + self.arm.l0_rotating_arm * np.cos(self.arm.theta_arm)
+        y = self.arm.h0_arm + self.arm.l0_rotating_arm * np.sin(self.arm.theta_arm) * np.cos(self.arm.phi_arm)
         return x, y
 
     def __str__(self):
         """Returns a string describing the object."""
         return "ChopSaw Object, age: " + str(self.age) + "; \nContains: \n\t" + self.blade.toString()
-    
-    def plot(self):
-        """Returns matplotlib patch object of blade."""
-        return Circle(self.bladePosition(), self.blade.radius)

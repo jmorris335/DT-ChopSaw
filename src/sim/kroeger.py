@@ -1,4 +1,4 @@
-from src.objects.chopsaw import ChopSaw
+from src.objects.saw import Saw
 from src.objects.blade import Blade, ToothType
 from src.objects.motor import Motor
 
@@ -18,4 +18,4 @@ def DWS780():
     blade = Blade(radius=0.1525, tooth_type=ToothType["TCG"], num_teeth=40,
                   arbor_dia=0.015875)
     motor = Motor()
-    saw = ChopSaw(id="DWS780", blade=blade, motor=motor)
+    saw = Saw(id="DWS780", blade=blade, motor=motor)

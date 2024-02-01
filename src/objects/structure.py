@@ -8,6 +8,7 @@
 | - 0.1, 15 Jan 2024: Initialized
 """
 import numpy as np
+from matplotlib.patches import Rectangle
 
 from src.aux.support import findDefault
 
@@ -20,10 +21,16 @@ class Arm:
     **kwargs : dict, optional
         Optional editing of state variables during initialization. Possible arguments are:
 
-        h0 : float, default=0.08 meters
+        h0_arm : float, default=0.08 meters
             The resting height for the center of the blade holder.
-        l0 : float, default=0.125 meters
+        l0_rotating_arm : float, default=0.125 meters
             The length between the hinge point (for theta_arm) and the center of the blade holder.
+        width_arm : float, default=0.05 meters
+            The diameter of the circular arm, primarily used for plotting purposes.
+        l0_slider : float, default=0.15 meters
+            The minimum length of the linear extender, primarily used for plotting purposes
+        gap_arm : float, default=0.6 meters
+            The distance between the unextended arm and the rear guard.
         x_arm : float, default=0.0 meters
             The linear displacement of the arm in/towards (positive) and out/away from the operator.
             0 (default) is all the way towards the workpiece (fully engaged).
@@ -37,25 +44,89 @@ class Arm:
         self.id = findDefault("0", "id", kwargs)
 
         # Physical Constants
-        self.h0 = findDefault(0.08, "h0", kwargs)
-        self.l0 = findDefault(.125, "l0", kwargs)
+        self.h0_arm = findDefault(0.04, "h0_arm", kwargs)
+        self.l0_rotating_arm = findDefault(.125, "l0_rotating_arm", kwargs)
+        self.width_arm = findDefault(.05, "width_arm", kwargs)
+        self.l0_slider = findDefault(.15, "l0_slider", kwargs)
+        self.gap_arm = findDefault(.06, "gap_arm", kwargs)
 
         # Dynamic Values
         self.x_arm = findDefault(0., "x_arm", kwargs)
         self.theta_arm = findDefault(0., "theta_arm", kwargs)
         self.phi_arm = findDefault(0., "phi_arm", kwargs)
 
-    def setValues(self, **kwargs):
-        """Basic setter."""
-        for key, val in kwargs:
-            if key == "x_arm": self.x_arm = val
-            elif key == "theta_arm": self.theta_arm = val
-            elif key == "phi_arm": self.phi_arm = val
+        # GUI Operations
+        self.patches = self.plot()
 
-    # def getHeightOfBladeCenter(self):
-    #     """Returns the height of the blade center relative to the blade resting on the surface
-    #     of the table."""
-    #     return self.h0 + self.l0 * np.sin(self.theta_arm) * np.cos(self.phi_arm)
+    def set(self, **kwargs):
+        """Determines if any passed keyword arguments are attributes of the entity, and 
+        sets them if so."""
+        for key, val in kwargs.items():
+            attr = getattr(self, key, None)
+            if attr is not None:
+                setattr(self, key, val)
+
+    def step(self):
+        pass
+
+    def plot(self, x=None, y=None):
+        """Returns a list of matplotlib.patches.Patch objects that represent the entity."""
+        if x is None: x = - self.l0_slider - self.gap_arm
+        if y is None: y = self.h0_arm - .5 * self.width_arm
+        
+        patches = list()
+        patches.append(self.plotLinearArmPatch(x, y))
+        patches.append(self.plotSliderArmPatch(x, y))
+        patches.append(self.plotAngularArmPatch(x, y))
+        return patches
+    
+    def plotLinearArmPatch(self, x, y):
+        """Returns matplotlib patch object for linear arm."""
+        return Rectangle(xy=(x, y), width=self.l0_slider, height=self.width_arm, 
+                         animated=True, fc="black", ec='k', lw=2, label='Static Arm')
+    
+    def plotSliderArmPatch(self, x, y):
+        """Returns matplotlib patch object for slider arm."""
+        return Rectangle(xy=(x + self.l0_slider, y + self.width_arm * 0.1), 
+                         width=self.x_arm, height=self.width_arm * 0.8, 
+                         animated=True, fc="white", ec='k', lw=2, label='Sliding Arm')
+    
+    def plotAngularArmPatch(self, x, y):
+        """Returns matplotlib patch object for angular arm."""
+        x_ang = x + self.l0_slider + self.x_arm
+        y_ang = y + self.h0_arm
+        patch = Rectangle(xy=(x_ang, y_ang), width=self.l0_rotating_arm, 
+                          height=self.width_arm, rotation_point=(x_ang, y_ang + .5*self.width_arm),
+                          animated=True, fc="yellow", ec="k", lw=2, label='Rotating Arm')
+        patch.set_angle(self.theta_arm * 180 / np.pi)
+        return patch
+    
+    def updatePatches(self, x=None, y=None):
+        """Updates patch objects of entity."""
+        if x is None: x = -self.l0_slider - self.gap_arm
+        if y is None: y = self.h0_arm - .5 * self.width_arm
+        
+        self.updateLinearArmPatch(x, y)
+        self.updateSliderPatch(x, y)
+        self.updateAngularArmPatch(x, y)
+
+    def updateLinearArmPatch(self, x, y):
+        """Updates xy position of linear arm patch."""
+        self.patches[0].set(xy = (x, y))
+
+    def updateSliderPatch(self, x, y):
+        """Updates xy position, length of slider patch."""
+        x_slider = x + self.l0_slider
+        y_slider = y + self.width_arm * 0.1
+        self.patches[1].set(xy = (x_slider, y_slider), width=self.x_arm)
+
+    def updateAngularArmPatch(self, x, y):
+        """Updates xy position, rotation angle of angular arm patch."""
+        x_ang = x + self.l0_slider + self.x_arm
+        self.patches[2].set(xy = (x_ang, y))
+        self.patches[2].rotation_point = (x_ang, y + .5*self.width_arm)
+        self.patches[2].set_angle(self.theta_arm * 180 / np.pi)
+
 
     def __str__(self):
         """Returns a string describing the object."""
@@ -80,9 +151,16 @@ class Table:
         # Dynamic Values
         self.theta_table = findDefault(0., "theta_table", kwargs)
 
-    def setValues(self, **kwargs):
-        for key, val in kwargs:
-            if key == "theta_tab": self.theta_tab = val
+    def set(self, **kwargs):
+        """Determines if any passed keyword arguments are attributes of the entity, and 
+        sets them if so."""
+        for key, arg in kwargs.items():
+            attr = getattr(self, key, None)
+            if attr is not None:
+                setattr(self, key, arg)
+
+    def step(self):
+        pass
 
     def __str__(self):
         """Returns a string describing the object."""

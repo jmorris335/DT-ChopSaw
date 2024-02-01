@@ -12,6 +12,7 @@
 
 from enum import Enum
 import numpy as np
+from matplotlib.patches import Circle
 
 from src.aux.support import findDefault
 from src.aux.dynamic import DynamicBlock
@@ -63,42 +64,53 @@ class Blade(DynamicBlock):
             The angular acceleration of the blade.
     ''' 
     def __init__(self, **kwargs):
-        self.id = findDefault("0", "id", kwargs)
+        self.id_blade = findDefault("0", "id_blade", kwargs)
 
         # Physical Constants
-        self.age = findDefault(0, "age", kwargs)
-        self.radius = findDefault(.092, "radius", kwargs)
+        self.age_blade = findDefault(0, "age_blade", kwargs)
+        self.radius_blade = findDefault(.092, "radius_blade", kwargs)
         self.num_teeth = findDefault(56, "num_teeth", kwargs)
-        self.weight = findDefault(.01, "weight", kwargs)
-        self.thickness = findDefault(0.001, "thickness", kwargs)
-        self.kerf = findDefault(0.0027, "kerf", kwargs)
+        self.weight_blade = findDefault(.01, "weight_blade", kwargs)
+        self.thickness_blade = findDefault(0.001, "thickness_blade", kwargs)
+        self.kerf_blade = findDefault(0.0027, "kerf_blade", kwargs)
         self.arbor_dia = findDefault(0.015875, "arbor_dia", kwargs)
         self.hook = findDefault(-0.104, "hook", kwargs)
         self.rake = findDefault(-0.104, "rake", kwargs)
         self.tooth_type = findDefault(ToothType['FTG'], "tooth_type", kwargs)
-        self.rotational_friction = findDefault(.01, "rotational_friction", kwargs)
-        self.moi = findDefault(self.calcMomentOfInertia(), "moi", kwargs)
+        self.rotational_friction_blade = findDefault(.01, "rotational_friction_blade", kwargs)
+        self.moi_blade = findDefault(self.calcMomentOfInertia(), "moi_blade", kwargs)
 
         # Dynamic Values
-        self.theta = findDefault(0, "theta", kwargs)
-        self.phi = findDefault(np.pi/2, "phi", kwargs)
-        self.phidot = findDefault(0, "phidot", kwargs)
-        self.omega = findDefault(0, "omega", kwargs)
+        self.theta_blade = findDefault(0, "theta_blade", kwargs)
+        self.phi_blade = findDefault(np.pi/2, "phi_blade", kwargs)
+        self.phidot_blade = findDefault(0, "phidot_blade", kwargs)
+        self.omega_blade = findDefault(0, "omega_blade", kwargs)
 
         # Inputs
         self.torque = findDefault(0, "torque", kwargs)
 
         # Set up state-space model
         self.A = [[0, 1, 0, 0],
-                  [0,  -self.rotational_friction / self.moi, 0, 0,],
+                  [0,  -self.rotational_friction_blade / self.moi_blade, 0, 0,],
                   [0, 0, 0, 1],
                   [0, 0, 0, 0]]
-        self.B = [[0], [1 / self.moi], [0], [0]]
+        self.B = [[0], [1 / self.moi_blade], [0], [0]]
         super().__init__(A=self.A, B=self.B)
+
+        # GUI operations
+        self.patches = self.plot()
+
+    def set(self, **kwargs):
+        """Determines if any passed keyword arguments are attributes of the entity, and 
+        sets them if so."""
+        for key, val in kwargs.items():
+            attr = getattr(self, key, None)
+            if attr is not None:
+                setattr(self, key, val)
 
     def getStates(self):
         """Returns a array of the current values for the dynamic state variables."""
-        return [self.theta, self.omega, self.phi, self.phidot]
+        return [self.theta_blade, self.omega_blade, self.phi_blade, self.phidot_blade]
     
     def getInputs(self):
         """Returns an array of the current values for the inputs."""
@@ -107,7 +119,7 @@ class Blade(DynamicBlock):
     def setStates(self, states: list=[0., 0., 0., 0.]):
         """Sets the state variables for the object in order: theta, omega, phi, phidot."""
         if len(states) == super().getNumStates():
-            self.theta, self.omega, self.phi, self.phidot = states
+            self.theta_blade, self.omega_blade, self.phi_blade, self.phidot_blade = states
         else: 
             raise Exception("Wrong number of states set for blade object (ID="+str(self.id) + ")")
 
@@ -126,11 +138,22 @@ class Blade(DynamicBlock):
     
     def calcMomentOfInertia(self):
         """Calculates the Moment of Inertia (assuming a disc), in kg*m^2 about the primary axis."""
-        return 1/2 * self.weight * self.radius**2 - (1/2 * self.weight * (self.arbor_dia/2)**2)
+        return 1/2 * self.weight_blade * self.radius_blade**2 - (1/2 * self.weight_blade * (self.arbor_dia/2)**2)
     
     def applyTorque(self, torque: float=0):
         """Updates the input based on an applied torque about the primary axis."""
         self.setInputs([torque])
+
+    def plot(self, x=0., y=0.):
+        """Returns list of matplotlib patch object of entity."""
+        patch = Circle((x, y), self.radius_blade)
+        patch.set(facecolor="orange", lw=1, edgecolor="white", label="Saw Blade")
+        return [patch]
+    
+    def updatePatches(self, x=0., y=0.):
+        """Updates patch objects of entity."""
+        blade = self.patches[0]
+        blade.set(center=(x, y))
 
     def __str__(self):
         """Returns a string describing the object."""

@@ -70,6 +70,9 @@ class Workpiece:
         self.L = findDefault(1., "L", kwargs)
         self.path = self.cleanPath(findDefault(defaultPath(), "path", kwargs))
 
+        # GUI operations
+        self.patches = self.plot()
+
     def cleanPath(self, path: list=None) -> list:
         """
         Cleans the list of points that comprise the cross-sectional path. Will not perfectly 
@@ -91,6 +94,17 @@ class Workpiece:
             path.append((path[-1][2], path[0][0]))
         path = self.shiftPositive(path)
         return path
+    
+    def set(self, **kwargs):
+        """Determines if any passed keyword arguments are attributes of the entity, and 
+        sets them if so."""
+        for key, val in kwargs.items():
+            attr = getattr(self, key, None)
+            if attr is not None:
+                setattr(self, key, val)
+
+    def step(self, **kwargs):
+        pass
     
     def shiftPositive(self, path: None) -> list:
         """Shifts the points so that all points are in the First Quadrant (positive) and, 
@@ -131,6 +145,12 @@ class Workpiece:
     
     def plot(self) -> PathPatch:
         """Returns a matplotlib PathPatch object defining the boundary of the object."""
+        path = self.makePath()
+        patch = PathPatch(path, fc="silver", lw=3, ec="black", label="Workpiece")
+        return [patch]
+    
+    def makePath(self) -> Path:
+        """Generates Path object from workpiece path."""
         vertices = [self.path[0][0]]
         codes = [Path.MOVETO]
         for seg in self.path:
@@ -140,8 +160,13 @@ class Workpiece:
             else:
                 vertices.extend(gui.arc2Bezier(*seg)[1:])
                 codes.extend(gui.arcCommands())
-        path = Path(vertices, codes)
-        return PathPatch(path)
+        return Path(vertices, codes)
+    
+    def updatePatches(self):
+        """Updates the patch of the wkp with wkp path."""
+        path = self.makePath()
+        self.patches[0].set_path(path)
+    
 
 if __name__ == '__main__':
     # Square, 10 cm wide beam 

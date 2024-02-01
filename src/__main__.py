@@ -1,8 +1,9 @@
-from src.test.scratchpaper import scratchpaper
+# from src.test.scratchpaper import scratchpaper
 from src.test.cut_test import cut_test
+from src.test.gui_test import animationTest
 
 def main():
-    cut_test()
+    animationTest()
 
 if __name__ == '__main__':
     main()

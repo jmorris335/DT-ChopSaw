@@ -1,10 +1,17 @@
-from src.objects.workpiece import *
+from matplotlib.patches import Rectangle
+import matplotlib.pyplot as plt
 
-def scratchpaper():
-    # Square, 10 cm wide beam 
-    path = list()
-    path.append([[0,0], [1,0]])
-    path.append([[1,0], [1,1]])
-    path.append([[1,1], [0,1]])
-    path.append([[0,1], [0,0]]) #Optional to close path
-    wkp_square = Workpiece(path=path)
+rect1 = Rectangle(xy=(0, 0), width=2, height=1, color='blue')
+rect2 = Rectangle(xy=(0, 0), width=2, height=1, angle=45, rotation_point='xy', color='red')
+rect3 = Rectangle(xy=(0, 0), width=2, height=1, color='green')
+rect3.set_angle(90)
+
+# Plot patches
+fig, ax = plt.subplots()
+ax.add_patch(rect1)
+ax.add_patch(rect2)
+ax.add_patch(rect3)
+ax.set_aspect('equal')
+ax.set_xlim(-2, 3)
+ax.set_ylim(-1, 3)
+plt.show()

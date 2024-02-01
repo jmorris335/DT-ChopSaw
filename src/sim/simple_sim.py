@@ -1,4 +1,4 @@
-from src.objects.chopsaw import ChopSaw
+from src.objects.saw import Saw
 from src.objects.blade import Blade
 from src.objects.motor import Motor
 
@@ -7,7 +7,7 @@ import numpy as np
 
 def simple_sim():
     """Simulates a torque being applied to a blade."""
-    saw = ChopSaw()
+    saw = Saw()
     delta = 0.1
     time = np.arange(0, 10, delta)
     omega = list()

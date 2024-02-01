@@ -17,13 +17,12 @@ def arc2Bezier(A, B, C):
                           [R, R*k],
                           [R*np.cos(theta) + R*k*np.sin(theta), R*np.sin(theta) - R*k*np.cos(theta)],
                           [R*np.cos(theta), R*np.sin(theta)]])
-    cntrl_pts = np.matmul(cntrl_pts, [[np.cos(-theta_min), -np.sin(-theta_min)],
-                                      [np.sin(-theta_min), np.cos(-theta_min)]]) #Rotate to arc position
+    cntrl_pts = cntrl_pts @ [[np.cos(-theta_min), -np.sin(-theta_min)],
+                             [np.sin(-theta_min), np.cos(-theta_min)]] #Rotate to arc position
     geo.shiftPoints(cntrl_pts, center)
-    # TODO: Delete >>> cntrl_pts += [center]*4 #Translate to original origin
     cntrl_pts = [list(pt) for pt in cntrl_pts]
-    # Flip order of points if CW versus CCW
-    if not geo.arcIsCCW(A, B, C, center):
+
+    if not geo.arcIsCCW(A, B, C, center):     # Flip order of points if CW versus CCW
         cntrl_pts.reverse()
     return cntrl_pts
 

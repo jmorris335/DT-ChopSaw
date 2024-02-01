@@ -1,14 +1,11 @@
 import matplotlib.pyplot as plt
 
-import matplotlib.patches as patches
-from matplotlib.path import Path
-
 from src.objects.workpiece import Workpiece
-from src.objects.chopsaw import ChopSaw
+from src.objects.saw import Saw
 
-def plotSawAndWkp(saw: ChopSaw, wkp: Workpiece):
+def plotSawAndWkp(saw: Saw, wkp: Workpiece):
     saw_patch = saw.plot()
-    saw_patch .set(facecolor="orange", lw=1, edgecolor="white", label="Saw Blade")
+    saw_patch.set(facecolor="orange", lw=1, edgecolor="white", label="Saw Blade")
     wkp_patch = wkp.plot()
     wkp_patch.set(facecolor="silver", lw=3, edgecolor="black", label="Workpiece")
 

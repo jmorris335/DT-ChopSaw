@@ -74,6 +74,14 @@ class Motor(DynamicBlock):
         self.B = [[0, 0], [-1 / self.J_M, 0], [0, 1 / self.L_M]]
         super().__init__(A=self.A, B=self.B)
 
+    def set(self, **kwargs):
+        """Determines if any passed keyword arguments are attributes of the entity, and 
+        sets them if so."""
+        for key, val in kwargs.items():
+            attr = getattr(self, key, None)
+            if attr is not None:
+                setattr(self, key, val)
+
     def getStates(self)-> list:
         """Returns a array of the current values for the dynamic state variables."""
         return [self.theta, self.omega, self.current]
