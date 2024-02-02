@@ -88,16 +88,20 @@ def findExtremaOnArc(seg, index: int=0):
         * >=3: negative y-axis (bottommost value)
     """
     if len(seg) != 3: return findMinimumCoordOnLine(seg, index)
-    A, B, D = seg
-    C = calcCircleCenter(A, B, D)
-    points = np.array([A, B, D]) - C
-    theta_set = [calcAngleToAxis(*a, index) for a in points]
-    theta_D = theta_set[-1]
-    if min(theta_set) == theta_D or max(theta_set) == theta_D:
-        R = calcCircleRadius(A, C)
-        return C[index] - R
+    center = calcCircleCenter(*seg)
+    A, B, C = shiftPoints(seg, center, inverse=True, copy=True)
+    radius = calcCircleRadius(A, center)
+    
+    minmax = [-1, 1][index < 2]
+    circle_extreme_pt = center.copy()
+    circle_extreme_pt[index % 2] += minmax * radius
+
+    if checkIfPointsOnArc([circle_extreme_pt], A, B, C, center):
+        return circle_extreme_pt[index % 2]
+    elif index < 2:
+        return max(A[index % 2], B[index % 2])
     else:
-        return min(A[index], B[index])
+        return min(A[index % 2], B[index % 2])
 
 def findCircleLineIntersections(U, V, A=None, B=None, C=None, center=None, radius=None):
     """Returns where the circle that goes through points A, B, C intersects the line going
@@ -225,7 +229,7 @@ def checkPointInCircle(point, center, radius) -> bool:
      defined with the given center and radius."""
     x, y = [point[i] - center[i] for i in range(len(point))]
     radius_point = np.sqrt(x**2 + y**2) + eps
-    return radius_point < radius
+    return radius_point < radius - eps
 
 def seg2PolarFun(seg, center):
     """Returns a lambda function that takes in an angle, theta, and returns the radial distance
@@ -336,3 +340,90 @@ def arcIsCCW(A, B, C, center=None):
     a, c = map(thetas.index, [thetaA, thetaC])
     if (c - a) % 3 == 1: return True #C follows A going CCW
     return False #A follows C going CCW
+
+def pointDistance(A, B):
+    """Returns the Euclidean distance between points at A and B."""
+    sum = 0.
+    for i in range(min(len(A), len(B))):
+        sum += (B[i] - A[i])**2
+    return np.sqrt(sum)
+
+def pointSegDistance(P, seg):
+    """Returns the maximum distance between the point P and the segment."""
+    if len(seg) < 3:
+        return max([pointDistance(P, seg_pt) for seg_pt in seg])
+    center = calcCircleCenter(*seg)
+    radius = calcCircleRadius(seg[0], center)
+    max_dist = pointDistance(P, center) + radius
+    endpt_dist = [pointDistance(P, seg_pt) for seg_pt in seg[:2]]
+    return max(endpt_dist + max_dist)
+
+def sortPointsByTheta(pts, center=None, other_lists=list()):
+    """Orders the provided points by angle of intersection versus the horizontal axis.
+    Also sorts lists of the same length of pts according to the same sequence (helpful
+    for sorting indices related to the points)."""
+    if center is not None:
+        shiftPoints(pts, center, inverse=True)
+    thetas = [calcAngleToAxis(*pt) for pt in pts]
+    pts = [pt for _, pt in sorted(zip(thetas, pts))]
+    shiftPoints(pts, center)
+    out_lists = list()
+    for l in other_lists:
+        out_lists.append([a for _, a in sorted(zip(thetas, l))])
+    return pts, *out_lists
+
+def calcParameterizedPointOnSeg(P, seg):
+    """Returns the value for t, the parameterized variable for the segment."""
+    if len(seg) < 3:
+        t = calcParameterizedPointOnLine(P, *seg)
+    else:
+        t = calcParameterizedPointOnArc(P, *seg)
+    return t
+
+def calcParameterizedPointOnLine(P, A, B):
+    """Returns the value of t (the parameteric variable) that gives point P for 
+    the line going from point A to point B."""
+    scale = lambda i : A[i] - B[i]
+    t = lambda i : (P[i] - A[i]) / scale(i)
+    if abs(scale(0)) < eps: 
+        return t(1)
+    if abs(scale(1)) < eps: return 0
+    return t(0)
+
+def calcParameterizedPointOnArc(P, A, B, C):
+    """Returns the value of t (the parameteric variable) that gives point P for 
+    the arc going from point A to point B through point C."""
+    center = calcCircleCenter(A, B, C)
+    radius = calcCircleRadius(A, center)
+    A_sh, B_sh = shiftPoints([A, B], center, inverse=True, copy=True)
+    thetas = [calcAngleToAxis(pt) for pt in [A_sh, B_sh]]
+    scale = thetas[1] - thetas[0]
+    diff = lambda i : P[i] - center[i]
+    if abs(scale) < eps: 
+        return 0
+    elif abs(diff[0]) < eps:
+        return (np.arcsin(diff(1) / radius) - thetas[1]) / (scale)
+    else:
+        return (np.arccos(diff(0) / radius) - thetas[0]) / (scale)
+    
+def findLineLineIntersections(A, B, C, D):
+    """Finds the intersection (if any) between the line between A and B and the line between C and D. 
+    Coincident lines are treated as having no intersection. Points are returned if they are anywhere 
+    on the domain of the two lines, including endpoints."""
+    if abs(A[0] - B[0]) < eps: #Line AB is vertical
+        if abs(D[0] - C[0]) < eps: return None #Both lines are vertical
+        x_intx = A[0]
+        slope_seg = (D[1] - C[1]) / (D[0] - C[0])
+        y_intx = slope_seg * (x_intx - C[0]) + C[1]
+    else:       
+        slope_ab = (A[1] - B[1]) / (A[0] - B[0])
+        if abs(D[0] - C[0]) < eps: #Segment is vertical
+            x_intx = C[0]
+        else:
+            slope_seg = (D[1] - C[1]) / (D[0] - C[0])
+            if abs(slope_ab - slope_seg) < eps: return None #Lines are parallel 
+            x_intx = (C[1] - A[1] + slope_ab * A[0] - slope_seg * C[0]) / (slope_ab - slope_seg)
+        y_intx = slope_ab * (x_intx - A[0]) + A[1]
+    
+    return (x_intx, y_intx)
+

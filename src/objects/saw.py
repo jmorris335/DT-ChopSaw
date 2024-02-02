@@ -79,14 +79,14 @@ class Saw:
             object.step()
 
     def updatePatches(self):
-        x = - self.arm.l0_slider
+        x = - self.arm.l0_arm
         self.arm.updatePatches()
         self.blade.updatePatches(*self.bladePosition())
 
     def bladePosition(self):
         """Returns the position of center of the blade in workpiece coordinates where (0,0) indicates 
         the center, lowest point on the cutting path, defined by the saw table. See module notes."""
-        x = self.arm.x_arm + self.arm.l0_rotating_arm * np.cos(self.arm.theta_arm)
+        x = self.arm.x_arm - self.arm.gap_arm + self.arm.l0_rotating_arm * np.cos(self.arm.theta_arm)
         y = self.arm.h0_arm + self.arm.l0_rotating_arm * np.sin(self.arm.theta_arm) * np.cos(self.arm.phi_arm)
         return x, y
 

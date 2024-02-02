@@ -1,3 +1,5 @@
+import numpy as np
+
 from src.objects.workpiece import Workpiece
 
 def makeSquareWkp(width = 1.) -> Workpiece:
@@ -14,5 +16,14 @@ def makeCircularWkp(dia=1.) -> Workpiece:
     path = [
         [[-dia, 0.], [dia, 0.], [0., -dia]],
         [[dia, 0.], [-dia, 0.], [0., dia]]
+    ]
+    return Workpiece(path=path)
+
+def makeQuarterCircle(radius=1.) -> Workpiece:
+    """Returns a quadrant I quarter circle."""
+    path = [
+        [[0, 0], [radius, 0]],
+        [[radius, 0], [0, radius], [radius*np.cos(np.pi/4), radius*np.sin(np.pi/4)]],
+        [[0, radius], [0, 0]]
     ]
     return Workpiece(path=path)

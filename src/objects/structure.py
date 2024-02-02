@@ -27,9 +27,9 @@ class Arm:
             The length between the hinge point (for theta_arm) and the center of the blade holder.
         width_arm : float, default=0.05 meters
             The diameter of the circular arm, primarily used for plotting purposes.
-        l0_slider : float, default=0.15 meters
-            The minimum length of the linear extender, primarily used for plotting purposes
-        gap_arm : float, default=0.6 meters
+        l0_arm : float, default=0.15 meters
+            The minimum length of the linear arm (unextended).
+        gap_arm : float, default=0.12 meters
             The distance between the unextended arm and the rear guard.
         x_arm : float, default=0.0 meters
             The linear displacement of the arm in/towards (positive) and out/away from the operator.
@@ -47,8 +47,8 @@ class Arm:
         self.h0_arm = findDefault(0.04, "h0_arm", kwargs)
         self.l0_rotating_arm = findDefault(.125, "l0_rotating_arm", kwargs)
         self.width_arm = findDefault(.05, "width_arm", kwargs)
-        self.l0_slider = findDefault(.15, "l0_slider", kwargs)
-        self.gap_arm = findDefault(.06, "gap_arm", kwargs)
+        self.l0_arm = findDefault(.15, "l0_slider", kwargs)
+        self.gap_arm = findDefault(.12, "gap_arm", kwargs)
 
         # Dynamic Values
         self.x_arm = findDefault(0., "x_arm", kwargs)
@@ -71,7 +71,7 @@ class Arm:
 
     def plot(self, x=None, y=None):
         """Returns a list of matplotlib.patches.Patch objects that represent the entity."""
-        if x is None: x = - self.l0_slider - self.gap_arm
+        if x is None: x = - self.l0_arm - self.gap_arm
         if y is None: y = self.h0_arm - .5 * self.width_arm
         
         patches = list()
@@ -82,18 +82,18 @@ class Arm:
     
     def plotLinearArmPatch(self, x, y):
         """Returns matplotlib patch object for linear arm."""
-        return Rectangle(xy=(x, y), width=self.l0_slider, height=self.width_arm, 
+        return Rectangle(xy=(x, y), width=self.l0_arm, height=self.width_arm, 
                          animated=True, fc="black", ec='k', lw=1, label='Static Arm')
     
     def plotSliderArmPatch(self, x, y):
         """Returns matplotlib patch object for slider arm."""
-        return Rectangle(xy=(x + self.l0_slider, y + self.width_arm * 0.1), 
+        return Rectangle(xy=(x + self.l0_arm, y + self.width_arm * 0.1), 
                          width=self.x_arm, height=self.width_arm * 0.8, 
                          animated=True, fc="white", ec='k', lw=1, label='Sliding Arm')
     
     def plotAngularArmPatch(self, x, y):
         """Returns matplotlib patch object for angular arm."""
-        x_ang = x + self.l0_slider + self.x_arm
+        x_ang = x + self.l0_arm + self.x_arm
         y_ang = y + self.h0_arm
         patch = Rectangle(xy=(x_ang, y_ang), width=self.l0_rotating_arm, 
                           height=self.width_arm, rotation_point=(x_ang, y_ang + .5*self.width_arm),
@@ -103,7 +103,7 @@ class Arm:
     
     def updatePatches(self, x=None, y=None):
         """Updates patch objects of entity."""
-        if x is None: x = -self.l0_slider - self.gap_arm
+        if x is None: x = -self.l0_arm - self.gap_arm
         if y is None: y = self.h0_arm - .5 * self.width_arm
         
         self.updateLinearArmPatch(x, y)
@@ -116,13 +116,13 @@ class Arm:
 
     def updateSliderPatch(self, x, y):
         """Updates xy position, length of slider patch."""
-        x_slider = x + self.l0_slider
+        x_slider = x + self.l0_arm
         y_slider = y + self.width_arm * 0.1
         self.patches[1].set(xy = (x_slider, y_slider), width=self.x_arm)
 
     def updateAngularArmPatch(self, x, y):
         """Updates xy position, rotation angle of angular arm patch."""
-        x_ang = x + self.l0_slider + self.x_arm
+        x_ang = x + self.l0_arm + self.x_arm
         self.patches[2].set(xy = (x_ang, y))
         self.patches[2].rotation_point = (x_ang, y + .5*self.width_arm)
         self.patches[2].set_angle(self.theta_arm * 180 / np.pi)

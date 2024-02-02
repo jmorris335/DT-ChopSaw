@@ -41,6 +41,7 @@ class Cut():
     '''
     def __init__(self, saw=Saw(), wkp=Workpiece(), **kwargs):
         self.id = findDefault("0", "id", kwargs)
+        self.all_cut = False
 
         # Components
         self.saw = saw
@@ -122,13 +123,19 @@ class Cut():
     
     def updatePatches(self):
         self.saw.updatePatches()
-        self.wkp.updatePatches()
+        if not self.all_cut:
+            self.wkp.updatePatches()
 
     def step(self):
         """Finds the intersection between the blade and workpiece, calculating the average
         radial height of the intersection, and then restructures the workpiece path to be the
         same as the blade circle where intersecting (removing cut material)."""
+        if self.all_cut: return
         self.blade_center = self.saw.bladePosition()
+        if self.checkWkpEnclosedInBlade(): #check if cut finished
+            del(self.patches[1])
+            self.all_cut = True
+            return
         intx_pts, seg_indices = self.findBladeWkpIntxs()
         if intx_pts is None:
             self.chip_depth = 0
@@ -137,6 +144,15 @@ class Cut():
         self.restructurePath(intx_pts, seg_indices)
         for object in self.objects:
             object.step()
+
+    def checkWkpEnclosedInBlade(self) -> bool:
+        """Returns true if the workpiece is entirely enclosed inside the blade circle 
+        (indicating a complete cut)."""
+        for seg in self.wkp.path:
+            seg_dist = geo.pointSegDistance(self.blade_center, seg)
+            if seg_dist - self.saw.blade.radius_blade > -geo.eps:
+                return False
+        return True
 
     def findBladeWkpIntxs(self):
         """Finds the intersection points between the saw blade in its current position 
@@ -151,7 +167,7 @@ class Cut():
                     intx_pts.append(p)
                     seg_indices.append(self.wkp.path.index(seg))
         if len(intx_pts) < 2: return None, None
-        self.arrangeIntxPointsByInOut(intx_pts, seg_indices)
+        intx_pts, seg_indices = self.arrangeIntxPointsByInOut(intx_pts, seg_indices)
         return intx_pts, seg_indices
     
     def findBladeSegIntxs(self, seg):
@@ -162,50 +178,63 @@ class Cut():
             points= geo.findCircleArcIntersections(*seg, center=self.blade_center, radius=self.saw.blade.radius_blade)
         return geo.checkIfPointsOnSegment(points, seg=seg)
     
-    def arrangeIntxPointsByInOut(self, points, seg_indices):
+    def arrangeIntxPointsByInOut(self, intx_pts, seg_indices):
         """Returns the points arranged CCW so that odd points are entry points and even points
         are exit points for the blade passing through the wkp."""
-        if self.checkCircleInProfile(self.blade_center, self.saw.blade.radius_blade, 
-                             points[0], points[1], seg_indices[0], seg_indices[1]):
-            points.insert(0, points[-1])
-            del(points[-1])
-            seg_indices.insert(0, seg_indices[-1])
-            del(seg_indices[-1])
-        return points
+        intx_pts, seg_indices = geo.sortPointsByTheta(intx_pts, self.blade_center, [seg_indices])
+        if not self.checkIntxPointsAreInOut(*intx_pts[:2]):
+            intx_pts = intx_pts[-1:] + intx_pts[:-1]
+            seg_indices = seg_indices[-1:] + seg_indices[:-1]
+        return intx_pts, seg_indices
 
-    def checkCircleInProfile(self, center, radius, iP1, iP2, seg1_index, seg2_index) -> bool:
-        """
-        Checks if the given circle with given center and radius passes (CCW) inside a segmented 
-        boundary curve between the intersection points iP1 and iP2, which lie on the two provided 
-        segments found at self.wkp.path[seg1_index] and self.wkp.path[seg2_index].
+    def checkIntxPointsAreInOut(self, P1, P2, CW=False) -> bool:
+        """Determines if the sequential intersection points are arranged as In/Out or Out/In,
+        where In indicates the point is where the blade enters the material, and Out is an exit 
+        point. 
         
         Process
         -------
-        For any two consecutive points, P1, and P2:
-        1. If P2 is not on the same segment as P1, then check the next vertex of the segment with
-        P1.
-        1. If P2 is on the same segment as P1, then parameterize the segment to w(t), so that 
-        w(0) = P1 and w(1) = P2.
-            1. Parameterize line: x = t * (P2(x) - P1(x)) + P1(x)
-                                y = t * (P2(y) - P1(y)) + P1(y)
-            1. Parameterize arc: x = Rcos(t*(theta(P2)-theta(P1) + theta(P1)) + C(x)
-                                y = Rsin(t*(theta(P2)-theta(P1) + theta(P1)) + C(y)
-        1. Check if w(k) for 0<k<1 is in the circle by seeing if the distance (D) from w(k) to the
-        center of the blade circle is less than the radius (R) of the blade circle
-        1. If D < R: then P1 is entry and P2 is exit (iff the blade moves from P1 to P2)
-
-        Note that for t = 0.5, the parameterizations reduce to .5 * (P1 + P2)
+        Generates a point on the blade circle between the two intersection points and checks if 
+        that point is in the workpiece profile. If it is, then the points are arranged In/Out.
         """
-        seg1 = self.wkp.path[seg1_index]
-        if seg1_index != seg2_index: check_pt = seg1[1]
-        elif len(seg1) == 2: #segment line that intersects the primary arc twice
-            check_pt = [.5 * (iP2[a] + iP1[a]) for a in range(2)]
-        else: #segment arc that intersects the primary arc twice
-            seg_cntr = geo.calcCircleCenter(*seg1)
-            # check_pt = geo.generatePointOnArc(seg1[0], seg1[1], seg_cntr)
-            check_pt = geo.generatePointOnArc(iP1, iP2, seg_cntr)
-        D = np.sqrt((check_pt[0] - center[0])**2 + (check_pt[1] - center[1])**2)
-        return D < (radius - np.finfo(float).eps) 
+        if CW:
+            check_pt = geo.generatePointOnArc(P2, P1, self.blade_center)
+        else:
+            check_pt = geo.generatePointOnArc(P1, P2, self.blade_center)
+        return self.wkp.pointInPath(check_pt)
+    
+    # def checkIntxPointsAreInOut(self, P1, P2, seg1_idx, seg2_idx) -> bool:
+    #     """Returns True if the blade circle contains the segments between the intersection
+    #     points, indicating that the first intersection point is an entry point and the second
+    #     is an exit point. Returns false if the profile is within the blade circle, indicating
+    #     the opposite.
+        
+    #     Process
+    #     -------
+    #     Intersection points (when ordered by increasing angular distance from an axis) always come
+    #     in pairs, either In/Out or Out/In. If the pair is In/Out (meaning the blade cuts into the 
+    #     workpiece at the first intersection point) then any point on the profile between the two pionts
+    #     must be outside of the blade circle, and vice versa for Out/In. So the process of determining
+    #     order is tied to finding a point on the profile between the two intersection points and 
+    #     checking if it is inside or outside of the blade circle. 
+    #     """
+    #     seg1 = self.wkp.path[seg1_idx]
+    #     if seg2_idx > seg1_idx: #Check vertex following P1
+    #         check_pt = seg1[1]
+    #     elif seg1_idx > seg2_idx: #Check vertex preceding P1
+    #         check_pt = seg1[0]
+    #     else: #See if P1 comes before or after P2 on segment
+    #         t_P1 = geo.calcParameterizedPointOnSeg(P1, seg1)
+    #         t_P2 = geo.calcParameterizedPointOnSeg(P2, seg1)
+    #         if t_P1 > t_P2: #Check vertex following P1
+    #             check_pt = seg1[1]
+    #         else: #Check point in between P1 and P2
+    #             if len(seg1) < 3:
+    #                 check_pt = [.5 * (P1[i] + P2[i]) for i in range(2)]
+    #             else:
+    #                 seg_cntr = geo.calcCircleCenter(*seg1)
+    #                 check_pt = geo.generatePointOnArc(P1, P2, seg_cntr)
+    #     return geo.checkPointInCircle(check_pt, self.blade_center, self.saw.blade.radius_blade)
 
     def calcAverageChipDepth(self, intx_pts, seg_indices) -> float:
         """Construed as the average of the distance between the blade circle and profile

@@ -61,6 +61,7 @@ def animate(entity, actions: list, rate: float=1/30):
         animate(saw, actions)
     ```
     """
+    entity.updatePatches()
     patches = entity.patches
 
     fig, ax = initializePlot()
@@ -112,10 +113,11 @@ def makeLinearPath(action_bounds: dict, num_steps: int=100):
         animate(saw, actions)
     ```
     """
+    if num_steps == 1: num_steps += 1
     actions = list()
     for i in range(num_steps):
         action = dict()
         for key, val in action_bounds.items():
-            action[key] = val[0] + (val[1] - val[0]) / num_steps * i
+            action[key] = val[0] + (val[1] - val[0]) / (num_steps-1) * i
         actions.append(action)
     return actions

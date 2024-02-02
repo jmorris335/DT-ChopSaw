@@ -2,17 +2,17 @@ from src.objects.cut import Cut
 from src.objects.saw import Saw
 from src.objects.blade import Blade
 from src.objects.structure import Arm
-from src.gui.plotter import *
+from src.gui.plotter import plotSawAndWkp
 from src.test.test_aux import *
 
 def cut_test():
-    arm = Arm(h0=.6, x_arm=.1)
-    blade = Blade(radius=0.50)
-    wkp = makeCircularWkp()
-    # wkp = makeSquareWkp()
+    arm = Arm(h0_arm=0, x_arm=0.5)
+    blade = Blade(radius_blade=0.4)
+    # wkp = makeQuarterCircle(.1)
+    # wkp = makeCircularWkp()
+    wkp = makeSquareWkp()
     saw = Saw(blade=blade, arm=arm)
     cut = Cut(saw=saw, wkp=wkp)
-    cut.step()
-    saw.arm.x_arm += 0.4
+    # saw.arm.x_arm += 0.4
     cut.step()
     plotSawAndWkp(saw, wkp)

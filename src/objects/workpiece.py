@@ -138,7 +138,7 @@ class Workpiece:
             if len(seg) == 2: #line
                 a = geo.findMinimumCoordOnLine(seg, index) 
             else: #arc
-                a = geo.findExtremaOnArc(seg, index)
+                a = geo.findExtremaOnArc(seg, index+2)
             if a < min_pt: 
                 min_pt = a
         return min_pt
@@ -166,16 +166,51 @@ class Workpiece:
         """Updates the patch of the wkp with wkp path."""
         path = self.makePath()
         self.patches[0].set_path(path)
-    
 
-if __name__ == '__main__':
-    # Square, 10 cm wide beam 
-    path = list()
-    path.append([[0,0], [1,0]])
-    path.append([[1,0], [1,1]])
-    path.append([[1,1], [0,1]])
-    path.append([[0,1], [0,0]]) #Optional to close path
-    wkp_square = Workpiece(path=path)
+    def pointInPath(self, P) -> bool:
+        """Returns True if the point lies within the workpiece path. Points on the boundary are
+        treated as being outside the path.
+        
+        Process
+        -------
+        1. Create bounding box around path.
+        1. Identify point on a horizontal line the left of the bounding box (ensured to be outside
+        the profile).
+        1. Make a ray from the outside point to point P and count how many times the path intersects
+        the ray. An odd number of intersections indicates that P is on the interior of the path. 
+
+        Edge Cases
+        ----------
+        - Intersections with horizontal lines are treated as no intersection occuring. 
+        - For intersections with vertices, only odd segments are counted.
+        """
+        x_outside = self.findMinimumCoord(index=0) - 1
+        A = (x_outside, P[1])
+
+        crosses = 0
+        for seg in self.path:
+            if len(seg) < 3:
+                intx_pts = [geo.findLineLineIntersections(A, P, *seg)]
+            else:
+                intx_pts = geo.findCircleLineIntersections(A, P, *seg)
+
+            for intx_pt in intx_pts:
+                if intx_pt is None: continue
+                if len(seg) < 3:
+                    bounded = len(geo.checkIfPointsOnLine([intx_pt], *seg[:2])) > 0
+                else:
+                    bounded = len(geo.checkIfPointsOnArc([intx_pt], *seg))
+                bounded *= len(geo.checkIfPointsOnLine([intx_pt], A, P)) > 0
+                if not bounded: continue
+                
+                at_vertex = np.sqrt(sum([(intx_pt[i] - seg[0][i]) ** 2 for i in range(2)])) < geo.eps
+                at_vertex += np.sqrt(sum([(intx_pt[i] - seg[1][i]) ** 2 for i in range(2)])) < geo.eps
+                if at_vertex:
+                    if self.path.index(seg) % 2: crosses += 1
+                else:
+                    crosses += 1
+        
+        return bool(crosses % 2)
 
 def defaultPath():
     """Makes the path of a square, 10 cm wide beam."""
