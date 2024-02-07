@@ -133,9 +133,11 @@ class Cut():
         if self.all_cut: return
         self.blade_center = self.saw.bladePosition()
         if self.checkWkpEnclosedInBlade(): #check if cut finished
-            del(self.patches[1])
+            self.wkp.path = list()
+            self.updatePatches()
             self.all_cut = True
             return
+        # TODO: Repeat For each loop in self.wkp.path, add loop: int=0 as param:
         intx_pts, seg_indices = self.findBladeWkpIntxs()
         if intx_pts is None:
             self.chip_depth = 0
@@ -203,39 +205,6 @@ class Cut():
             check_pt = geo.generatePointOnArc(P1, P2, self.blade_center)
         return self.wkp.pointInPath(check_pt)
     
-    # def checkIntxPointsAreInOut(self, P1, P2, seg1_idx, seg2_idx) -> bool:
-    #     """Returns True if the blade circle contains the segments between the intersection
-    #     points, indicating that the first intersection point is an entry point and the second
-    #     is an exit point. Returns false if the profile is within the blade circle, indicating
-    #     the opposite.
-        
-    #     Process
-    #     -------
-    #     Intersection points (when ordered by increasing angular distance from an axis) always come
-    #     in pairs, either In/Out or Out/In. If the pair is In/Out (meaning the blade cuts into the 
-    #     workpiece at the first intersection point) then any point on the profile between the two pionts
-    #     must be outside of the blade circle, and vice versa for Out/In. So the process of determining
-    #     order is tied to finding a point on the profile between the two intersection points and 
-    #     checking if it is inside or outside of the blade circle. 
-    #     """
-    #     seg1 = self.wkp.path[seg1_idx]
-    #     if seg2_idx > seg1_idx: #Check vertex following P1
-    #         check_pt = seg1[1]
-    #     elif seg1_idx > seg2_idx: #Check vertex preceding P1
-    #         check_pt = seg1[0]
-    #     else: #See if P1 comes before or after P2 on segment
-    #         t_P1 = geo.calcParameterizedPointOnSeg(P1, seg1)
-    #         t_P2 = geo.calcParameterizedPointOnSeg(P2, seg1)
-    #         if t_P1 > t_P2: #Check vertex following P1
-    #             check_pt = seg1[1]
-    #         else: #Check point in between P1 and P2
-    #             if len(seg1) < 3:
-    #                 check_pt = [.5 * (P1[i] + P2[i]) for i in range(2)]
-    #             else:
-    #                 seg_cntr = geo.calcCircleCenter(*seg1)
-    #                 check_pt = geo.generatePointOnArc(P1, P2, seg_cntr)
-    #     return geo.checkPointInCircle(check_pt, self.blade_center, self.saw.blade.radius_blade)
-
     def calcAverageChipDepth(self, intx_pts, seg_indices) -> float:
         """Construed as the average of the distance between the blade circle and profile
         path."""
@@ -338,7 +307,7 @@ class Cut():
             else:
                 self.wkp.path[m] = m_seg
 
-            self.deleteEnclosedSegments(n, m)
+            self.deleteEnclosedSegments(n, m, seg_indices)
             self.insertCutArc(*p_i_pts)
 
     def findClippedSegs(self, n, m, A, B):
@@ -376,9 +345,10 @@ class Cut():
             endpoints.append(geo.generatePointOnArc(*endpoints, arc_center))
         return endpoints
     
-    def deleteEnclosedSegments(self, n, m):
+    def deleteEnclosedSegments(self, n, m, seg_indices):
         """Removes all segments between the segments at the indices n and m that 
         are entirely enclosed in the blade circle."""
+        #TODO: Need to check if any segment has any intersection, not just primary pair
         if n == m: return #No enclosed segments
 
         # Figure out which direction is the next enclosed segment
@@ -387,7 +357,7 @@ class Cut():
         isPos = geo.checkPointInCircle(next_pt, self.blade_center, self.saw.blade.radius_blade)
         dir = [-1, 1][isPos]
         i = (n + dir) % num_segs
-        while i != m:
+        while i != m and i not in seg_indices:
             del(self.wkp.path[i])
             if not isPos: i -= 1
             i = i % len(self.wkp.path) #increments automatically since len(path) decreases

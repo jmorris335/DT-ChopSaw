@@ -151,6 +151,7 @@ class Workpiece:
     
     def makePath(self) -> Path:
         """Generates Path object from workpiece path."""
+        if len(self.path) == 0: return Path([[0,0]], [Path.MOVETO])
         vertices = [self.path[0][0]]
         codes = [Path.MOVETO]
         for seg in self.path:

@@ -88,6 +88,7 @@ def initializePlot():
     ax.set_aspect('equal', adjustable='box')
     ax.set_xlim(-.3, .3)
     ax.set_ylim(-.2, .3)
+    plt.axis('off')
     fig.suptitle("Workpiece and Sawblade")
     return fig, ax
 

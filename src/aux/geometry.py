@@ -281,6 +281,8 @@ def calcBoundingAngles(seg, field_center=[0,0]):
             phi = xy2polar(*pnt)[1]
             theta = phi
         circle_bounds = calcCircleSpanningAngles((r0, phi), arc_radius)
+        if any([i is None for i in circle_bounds]):
+            return bounds
         xy_bounds = [polar2xy(r_bound, theta) for theta in circle_bounds]
         arc_xy_points = checkIfPointsOnArc(xy_bounds, *seg_sh)
         if arc_xy_points is not None:
@@ -310,12 +312,13 @@ def calcArcSpanningAngles(thetaA, thetaB, thetaC) -> list:
     if min(bounds) <= -np.pi: bounds = [b + 2*np.pi for b in bounds]
     return bounds
 
-def calcCircleSpanningAngles(center, radius):
+def calcCircleSpanningAngles(polar_pt, radius):
     """Calculates the angle from the origin to the radial lines tangent to a circle with given 
     radius and located at the given center in polar coordinates.
     
     Source: https://math.stackexchange.com/a/4525769"""
-    r0, phi = center
+    r0, phi = polar_pt
+    if abs(r0) < eps: return [None, None]
     return [phi + a * np.arcsin(radius/r0) for a in [-1, 1]]
     
 def polar2xy(r, theta):
@@ -354,9 +357,16 @@ def pointSegDistance(P, seg):
         return max([pointDistance(P, seg_pt) for seg_pt in seg])
     center = calcCircleCenter(*seg)
     radius = calcCircleRadius(seg[0], center)
-    max_dist = pointDistance(P, center) + radius
+    
+    max_theta = -np.arctan2(P[1] - center[1], P[0] - center[0])
+    max_pt = polar2xy(radius, max_theta)
+    shiftPoints(max_pt, center)
+    if checkIfPointsOnArc([max_pt], *seg, center): 
+        max_dist = pointDistance(P, max_pt)
+        return max_dist
+    
     endpt_dist = [pointDistance(P, seg_pt) for seg_pt in seg[:2]]
-    return max(endpt_dist + max_dist)
+    return max(endpt_dist)
 
 def sortPointsByTheta(pts, center=None, other_lists=list()):
     """Orders the provided points by angle of intersection versus the horizontal axis.

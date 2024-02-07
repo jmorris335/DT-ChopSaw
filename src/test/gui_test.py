@@ -12,7 +12,7 @@ def animation_test():
     saw = Saw()
     saw.set(x_arm=0, theta_arm=np.pi/2)
     cut = Cut(saw, wkp)
-    action_bounds1 = {'x_arm' : [0.1, 0.12], 
+    action_bounds1 = {'x_arm' : [0.08, 0.15], 
                       'theta_arm' : [np.pi/2, 0],
                       'torque' : [.1, .1]}
     action_bounds2 = {'x_arm' : [0.12, 0], 'torque' : [.1, .1]}
