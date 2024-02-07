@@ -1,6 +1,7 @@
 # Custom
 dev/
 *scratchpaper.py
+animation_cli.py
 
 # VS Code
 .vscode/
