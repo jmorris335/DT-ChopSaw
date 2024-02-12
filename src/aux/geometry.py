@@ -31,6 +31,7 @@ def calcCircleCenter(A, B, C):
     combfun = lambda a, b, c, x : (a[0]**2 + a[1]**2) * -(-1)**x * (b[x] - c[x])
     sumfun = lambda a, b, c, x : combfun(a, c, b, x) + combfun(b, a, c, x) + combfun(c, b, a, x)
     denom = 2 * (A[1]*B[0] - A[0]*B[1] - A[1]*C[0] + A[0]*C[1] - B[0]*C[1] + B[1]*C[0])
+    if abs(denom) < eps: return None, None #Points are coicident
     x = sumfun(A, B, C, x=1) / denom
     y = sumfun(A, B, C, x=0) / denom
     return [x, y]
@@ -71,7 +72,7 @@ def findMinimumCoordOnLine(seg, index: int=0):
     coord_set = [p[index] for p in seg]
     return min(coord_set)
 
-def findExtremaOnArc(seg, index: int=0):
+def findExtremaOnArc(seg, index: int=0) -> float:
     """Returns the extreme point on an arc, which is either one of the endpoints or
     an extreme quandrant point on the great circle.
 
@@ -89,7 +90,7 @@ def findExtremaOnArc(seg, index: int=0):
     """
     if len(seg) != 3: return findMinimumCoordOnLine(seg, index)
     center = calcCircleCenter(*seg)
-    A, B, C = shiftPoints(seg, center, inverse=True, copy=True)
+    A, B, C = [p[:] for p in seg]
     radius = calcCircleRadius(A, center)
     
     minmax = [-1, 1][index < 2]
@@ -110,9 +111,9 @@ def findCircleLineIntersections(U, V, A=None, B=None, C=None, center=None, radiu
     if center is None: 
         center = calcCircleCenter(A, B, C)
         radius = calcCircleRadius(A, center)
-    if V[0] - U[0] == 0: return vertLineCircleIntersections(center, radius, U[0])
+    if abs(V[0] - U[0]) < eps: return vertLineCircleIntersections(center, radius, U[0])
     m = (V[1] - U[1]) / (V[0] - U[0])
-    a = 1 + m
+    a = 1 + m**2
     b = 2 * m * (U[1] - m * U[0] - center[1]) - 2 * center[0]
     c = (U[1] - m*U[0] - center[1])**2 + center[0]**2 - radius**2
     if b**2 - 4*a*c <= eps: return None, None #Either no intersections or tangent point
@@ -213,7 +214,7 @@ def generatePointOnArc(A, B, center):
     return [x, y]
 
 def shiftPoints(points, shift, inverse: bool=False, copy: bool=False):
-    """Shifts the points the negative values of the coordinates in shift. If inverse is 
+    """Translates the points by the values of the coordinates in shift. If inverse is 
     True, then the points are translated by the negative of the shift coordinates."""
     if not hasattr(points[0], '__len__'): points = [points]
     pts = [p[:] for p in points] if copy else points #deepcopy
@@ -393,28 +394,22 @@ def calcParameterizedPointOnSeg(P, seg):
 def calcParameterizedPointOnLine(P, A, B):
     """Returns the value of t (the parameteric variable) that gives point P for 
     the line going from point A to point B."""
-    scale = lambda i : A[i] - B[i]
+    scale = lambda i : B[i] - A[i]
     t = lambda i : (P[i] - A[i]) / scale(i)
     if abs(scale(0)) < eps: 
+        if abs(scale(1)) < eps: return 0
         return t(1)
-    if abs(scale(1)) < eps: return 0
     return t(0)
 
 def calcParameterizedPointOnArc(P, A, B, C):
     """Returns the value of t (the parameteric variable) that gives point P for 
     the arc going from point A to point B through point C."""
     center = calcCircleCenter(A, B, C)
-    radius = calcCircleRadius(A, center)
-    A_sh, B_sh = shiftPoints([A, B], center, inverse=True, copy=True)
-    thetas = [calcAngleToAxis(pt) for pt in [A_sh, B_sh]]
-    scale = thetas[1] - thetas[0]
-    diff = lambda i : P[i] - center[i]
-    if abs(scale) < eps: 
-        return 0
-    elif abs(diff[0]) < eps:
-        return (np.arcsin(diff(1) / radius) - thetas[1]) / (scale)
-    else:
-        return (np.arccos(diff(0) / radius) - thetas[0]) / (scale)
+    A_sh, B_sh, P_sh = shiftPoints([A, B, P], center, inverse=True, copy=True)
+    thetas = [calcAngleToAxis(*pt) for pt in [A_sh, B_sh, P_sh]]
+    thetas = [t - thetas[0] for t in thetas]
+    if abs(thetas[1]) < eps: return 0
+    return thetas[2] / thetas[1]
     
 def findLineLineIntersections(A, B, C, D):
     """Finds the intersection (if any) between the line between A and B and the line between C and D. 

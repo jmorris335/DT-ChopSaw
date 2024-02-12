@@ -79,7 +79,6 @@ class Saw:
             object.step()
 
     def updatePatches(self):
-        x = - self.arm.l0_arm
         self.arm.updatePatches()
         self.blade.updatePatches(*self.bladePosition())
 

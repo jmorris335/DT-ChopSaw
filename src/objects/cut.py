@@ -10,7 +10,7 @@
 
 import numpy as np
 
-from src.aux.support import findDefault, loopSlice
+from src.aux.support import findDefault, shiftIndices
 import src.aux.geometry as geo
 from src.objects.saw import Saw
 from src.objects.workpiece import Workpiece
@@ -101,6 +101,11 @@ class Cut():
             elif key == "b3": self.b3 = arg
             elif key == "b4": self.b4 = arg
 
+    def set(self, **kwargs):
+        """Updates parameters in the saw."""
+        for object in self.objects:
+            object.set(**kwargs)
+
     def calcPressureCoef(self, c0, c1, c2, c3, c4):
         """Calculates the pressure coefficients for use in Merchant's model using the regression 
         model found in Kapoor et al. (2024)."""
@@ -116,11 +121,6 @@ class Cut():
         """Returns a string describing the object."""
         return "Cut (ID=" + str(self.id) + ")"
     
-    def set(self, **kwargs):
-        """Updates parameters in the saw."""
-        for object in self.objects:
-            object.set(**kwargs)
-    
     def updatePatches(self):
         self.saw.updatePatches()
         if not self.all_cut:
@@ -132,42 +132,62 @@ class Cut():
         same as the blade circle where intersecting (removing cut material)."""
         if self.all_cut: return
         self.blade_center = self.saw.bladePosition()
+
         if self.checkWkpEnclosedInBlade(): #check if cut finished
-            self.wkp.path = list()
+            self.wkp.loops = list()
             self.updatePatches()
             self.all_cut = True
             return
-        # TODO: Repeat For each loop in self.wkp.path, add loop: int=0 as param:
-        intx_pts, seg_indices = self.findBladeWkpIntxs()
-        if intx_pts is None:
-            self.chip_depth = 0
-            return
-        self.chip_depth = self.calcAverageChipDepth(intx_pts, seg_indices)
-        self.restructurePath(intx_pts, seg_indices)
+
+        chip_depths = list()
+        for i in range(len(self.wkp.loops)):
+            loop = self.wkp.loops[i]
+            if self.checkLoopEnclosedInBlade(loop):
+                self.wkp.loops[i] = list()
+                continue
+            intx_pts, seg_indices = self.findBladeWkpIntxs(loop)
+            if intx_pts is None:
+                continue
+            loop_chip_depth = self.calcAverageChipDepth(intx_pts, seg_indices, loop)
+            chip_depths.append(loop_chip_depth)
+            self.wkp.loops[i] = self.restructurePath(intx_pts, seg_indices, loop)
+        self.chip_depth = np.mean(chip_depths)
+        self.wkp.loops = self.wkp.cleanLoops()
+        self.updatePatches()
+
         for object in self.objects:
             object.step()
 
     def checkWkpEnclosedInBlade(self) -> bool:
         """Returns true if the workpiece is entirely enclosed inside the blade circle 
         (indicating a complete cut)."""
-        for seg in self.wkp.path:
+        for loop in self.wkp.loops:
+            if self.checkLoopEnclosedInBlade(loop):
+                continue
+            else:
+                return False
+        return True
+    
+    def checkLoopEnclosedInBlade(self, loop) -> bool:
+        """Returns True if the loop is entirely enclosed inside the blade circle."""
+        for seg in loop:
             seg_dist = geo.pointSegDistance(self.blade_center, seg)
             if seg_dist - self.saw.blade.radius_blade > -geo.eps:
                 return False
         return True
 
-    def findBladeWkpIntxs(self):
+    def findBladeWkpIntxs(self, loop: list):
         """Finds the intersection points between the saw blade in its current position 
         and the workpiece. The blade will enter the wkp every odd point and exit every 
         even point."""
         intx_pts = list()
         seg_indices = list()
-        for seg in self.wkp.path:
+        for seg in loop:
             points = self.findBladeSegIntxs(seg)
             for p in points:
                 if p is not None: 
                     intx_pts.append(p)
-                    seg_indices.append(self.wkp.path.index(seg))
+                    seg_indices.append(loop.index(seg))
         if len(intx_pts) < 2: return None, None
         intx_pts, seg_indices = self.arrangeIntxPointsByInOut(intx_pts, seg_indices)
         return intx_pts, seg_indices
@@ -203,23 +223,23 @@ class Cut():
             check_pt = geo.generatePointOnArc(P2, P1, self.blade_center)
         else:
             check_pt = geo.generatePointOnArc(P1, P2, self.blade_center)
-        return self.wkp.pointInPath(check_pt)
+        return self.wkp.pointInLoop(check_pt)
     
-    def calcAverageChipDepth(self, intx_pts, seg_indices) -> float:
+    def calcAverageChipDepth(self, intx_pts, seg_indices, loop: list) -> float:
         """Construed as the average of the distance between the blade circle and profile
         path."""
         profile_heights = list()
         for p in range(len(intx_pts) // 2): #Index to each odd (entry) intersection point
-            profile = self.profile2PolarDomain(intx_pts[p:p+2], seg_indices[p:p+2])
+            profile = self.profile2PolarDomain(intx_pts[p:p+2], seg_indices[p:p+2], loop)
             profile_heights.append(self.calcRadialDistanceByPoints(profile))
         return np.mean(profile_heights)
 
-    def profile2PolarDomain(self, intx_pts, seg_indices):
+    def profile2PolarDomain(self, intx_pts, seg_indices, loop: list) -> list:
         """Returns a 2D list detailing a closed segment path intersecting the blade circle.
         Each entry in the list is of the form: [<polar segment lambda>, <minimum bounding angle>,
         <maximum bounding angle>]."""
         profile = list()
-        enclosed_path = self.getSegmentsInsideCircle(seg_indices)
+        enclosed_path = self.getSegmentsInsideCircle(seg_indices, loop)
         segs = [p[:] for p in enclosed_path]
         segs[0] = self.clipSegmentsOutsideCircle(segs[0], intx_pts[0])
         segs[-1] = self.clipSegmentsOutsideCircle(segs[-1], intx_pts[1])
@@ -229,18 +249,18 @@ class Cut():
             profile.append(entry)
         return profile
     
-    def getSegmentsInsideCircle(self, seg_indices) -> list:
+    def getSegmentsInsideCircle(self, seg_indices, loop: list) -> list:
         """Returns the two segments listed by seg_indices as well as all segments between
         which are enclosed within the circle."""
         n, m = seg_indices[0:2]
-        check_pt = self.wkp.path[(n+1) % len(self.wkp.path)][0]
+        check_pt = loop[(n+1) % len(loop)][0]
         isPos = geo.checkPointInCircle(check_pt, self.blade_center, self.saw.blade.radius_blade)
         dir = [1, -1][isPos]
-        segs = [self.wkp.path[n]]
+        segs = [loop[n]]
         i = m
         while i != n:
-            segs.append(self.wkp.path[i])
-            i = (i + dir) % len(self.wkp.path)
+            segs.append(loop[i])
+            i = (i + dir) % len(loop)
         return segs
 
     def clipSegmentsOutsideCircle(self, seg, intx_pt, outside: bool=False):
@@ -290,82 +310,134 @@ class Cut():
         if len(rs) % 2 == 1: rs.append(self.saw.blade.radius_blade)
         return sum([abs(rs[i+1] - rs[i]) for i in range(len(rs) // 2)])
 
-    def restructurePath(self, intx_pts, seg_indices):
+    def restructurePath(self, intx_pts, seg_indices, loop: list):
         """Deletes each segment in the workpiece path identified as starting at an odd index in
         seg_indices and ending at the following even index in seg_indices. Replaces these segments
         with a single arc that starts at the corresponding intersection points and is centered at the
         saw blade. Clips intersecting segments to intersection points."""
-        for p in range(len(intx_pts) // 2):
-            p_i_pts = intx_pts[p:p+2]
-            n, m = seg_indices[p:p+2]
+        p_idxs = [i*2 for i in range(len(intx_pts) // 2)]
+        
+        clipped_segs = list()
+        is_pos = self.loopIndexingIsPos(intx_pts, seg_indices, loop)
+        for p in p_idxs:
+            clipped_segs.extend(self.findClippedSegs(*seg_indices[p:p+2], *intx_pts[p:p+2], is_pos, loop))
 
-            n_seg, m_seg = self.findClippedSegs(n, m, *p_i_pts)
-            
-            self.wkp.path[n] = n_seg 
-            if n == m: #Make a new segment if both intersections are through a single segment
-                self.wkp.path.insert(m, m_seg)
-            else:
-                self.wkp.path[m] = m_seg
+        new_path = self.makeNewPath(seg_indices, clipped_segs, is_pos, loop)
+        for p in p_idxs:
+            self.insertCutArc(*intx_pts[p:p+2], is_pos, new_path)
+        return new_path
 
-            self.deleteEnclosedSegments(n, m, seg_indices)
-            self.insertCutArc(*p_i_pts)
-
-    def findClippedSegs(self, n, m, A, B):
+    def findClippedSegs(self, i_in, i_out, A, B, is_pos: bool, loop: list):
         """Returns the clipped segment(s) intersecting the blade circle that remain 
         (not enclosed in the blade circle). A and B are the (x,y) intersection points located on the
-        segments found at indices n and m.
+        segments found at indices i_in and i_out.
         
         Note: function uses the values of the adjacent segments to connect lines together. These
         adjacent segments (located at indices u and v) are determined by finding which direction 
-        the blade circle intersection occurs.
+        the blade circle intersection occurs, unless the segment is intersected by the blade circle
+        twice, in which case the function parameterizes the line and finds which point (starting or 
+        ending) the point lies next to.
         """
-        num_segs = len(self.wkp.path)
-        u, v = ( (n+1) % num_segs, (m-1) % num_segs )
-        if geo.checkPointInCircle(self.wkp.path[u][0], self.blade_center, self.saw.blade.radius_blade):
-            u, v = ( (n-1) % num_segs, (m+1) % num_segs )
-
-        # Clip intersecting segments
-        n_seg = [A, self.wkp.path[u][0]]
-        m_seg = [self.wkp.path[v][1], B]
+        num_segs = len(loop)
+        # u is the remaining seg connected to in, v is the remaining seg connected to out
+        if is_pos:
+            u, v = ( (i_in+1) % num_segs, (i_out-1) % num_segs )
+            in_seg = [A, loop[u][0]]
+            out_seg = [loop[v][1], B]
+        else:
+            u, v = ( (i_in-1) % num_segs, (i_out+1) % num_segs )
+            in_seg = [loop[u][1], A]
+            out_seg = [B, loop[v][0]]
 
         # Generate additional point for arcs
-        if len(self.wkp.path[n]) == 3: 
-            n_seg = self.generateClippedArcSeg(n, n_seg)
-        if len(self.wkp.path[m]) == 3: 
-            m_seg = self.generateClippedArcSeg(m, m_seg)
-        return n_seg, m_seg
+        if len(loop[i_in]) == 3: 
+            in_seg = self.generateClippedArcSeg(i_in, in_seg, loop)
+        if len(loop[i_out]) == 3: 
+            out_seg = self.generateClippedArcSeg(i_out, out_seg, loop)
+        return in_seg, out_seg
 
-    def generateClippedArcSeg(self, index, endpoints):
+    def loopIndexingIsPos(self, intx_pts, seg_indices, loop: list):
+        """Returns True if the segment indices for the loop starting at the point A on the 
+        segment located at index i_in is positive or negative incrementing. That is, if the remaining 
+        loop is composed of segments at [i_in, i_in+1, i_in+2, ..., i_in+k, i_out] or the segments at 
+        [i_in, i_in-1, i_in-2, ..., i_in-k, i_out]."""
+        i_in = seg_indices[0]
+        pt_in = intx_pts[0]
+        pt_indices = [i for i in range(len(seg_indices)) if seg_indices[i] == i_in]
+        if len(pt_indices) >= 2: #2 intersections on segment
+            A, B = [intx_pts[a] for a in pt_indices]
+            pt_out = A if B == pt_in else B
+            t_in = geo.calcParameterizedPointOnSeg(pt_in, loop[i_in])
+            t_out = geo.calcParameterizedPointOnSeg(pt_out, loop[i_in])
+            return t_in > t_out
+
+        next_pt = loop[(i_in+1) % len(loop)][0]
+        isPos = not geo.checkPointInCircle(next_pt, self.blade_center, self.saw.blade.radius_blade)
+        return isPos
+
+    def generateClippedArcSeg(self, index, endpoints, loop: list):
         """Generates an arbitrary segement for an arc bounded by the endpoints and coincident
-        with the arc segment located at self.wkp.path[index]."""
-        arc_center = geo.calcCircleCenter(*self.wkp.path[index])
-        if not geo.arcIsCCW(*self.wkp.path[index], arc_center):
+        with the arc segment located at loop[index]."""
+        arc_center = geo.calcCircleCenter(*loop[index])
+        if not geo.arcIsCCW(*loop[index], arc_center):
             endpoints.append(geo.generatePointOnArc(*reversed(endpoints), arc_center))
         else:
             endpoints.append(geo.generatePointOnArc(*endpoints, arc_center))
         return endpoints
+
+    def makeNewPath(self, seg_indices, clipped_segs, is_pos, loop: list):
+        """Returns a new path containing all the segments between the indices i_in and i_out that
+        are outside of the blade circle. The path needs to be cleaned to identify possible loops."""
+        num_segs = len(loop)
+        new_lp = list()
+
+        i = seg_indices[is_pos]
+        not_visited_ps = [p for p in range(is_pos, len(seg_indices), 2)] #all out/in segs
+        while len(not_visited_ps) > 0:
+            p = self.findNextClippedSegIdx(not_visited_ps, seg_indices, i)
+            p, c_s = self.findNextClippedSegs(p, clipped_segs, is_pos)
+            new_lp.extend(c_s)
+
+            # Append non-intersecting, non-enclosed segments
+            i = (seg_indices[p] + 1) % num_segs
+            while i not in seg_indices:
+                new_lp.append(loop[i])
+                i = (i+1) % num_segs
+
+        return new_lp
     
-    def deleteEnclosedSegments(self, n, m, seg_indices):
-        """Removes all segments between the segments at the indices n and m that 
-        are entirely enclosed in the blade circle."""
-        #TODO: Need to check if any segment has any intersection, not just primary pair
-        if n == m: return #No enclosed segments
+    def findNextClippedSegIdx(self, not_visited_ps, seg_indices, i):
+        """Returns the index for the next clipped segment in the path, with the direction
+        decided by the indexing of the loop. Deletes the index from the not_visited_ps
+        list."""
+        found = False
+        for j in not_visited_ps:
+            if seg_indices[j] == i:
+                p = j
+                found = True
+        if not found: p = not_visited_ps[0]
+        del(not_visited_ps[not_visited_ps.index(p)])
+        return p
+    
+    def findNextClippedSegs(self, p: int, clipped_segs, is_pos: bool):
+        """Returns the set of clipped segments in order based on the index of the next
+        connecting segment, p. The connecting segment is out/in based on if is_pos is 
+        True/False."""
+        if is_pos:  #enclosed segs: out -> in
+            c_s = [clipped_segs[p], clipped_segs[p-1]]
+            p -= 1
+        else:   #remaining segs: out -> in
+            c_s = clipped_segs[p:p+2]
+            p += 1
+        return p, c_s
 
-        # Figure out which direction is the next enclosed segment
-        num_segs = len(self.wkp.path)
-        next_pt = self.wkp.path[(n+1) % num_segs][0]
-        isPos = geo.checkPointInCircle(next_pt, self.blade_center, self.saw.blade.radius_blade)
-        dir = [-1, 1][isPos]
-        i = (n + dir) % num_segs
-        while i != m and i not in seg_indices:
-            del(self.wkp.path[i])
-            if not isPos: i -= 1
-            i = i % len(self.wkp.path) #increments automatically since len(path) decreases
-
-    def insertCutArc(self, A, B):
+    def insertCutArc(self, A, B, is_pos: bool, loop: list):
         """Inserts an arc coicident with the blade circle and terminated by points A
         and B. Fails if the workpiece profile is crossed (not simple)."""
         point_on_arc = geo.generatePointOnArc(A, B, self.blade_center)
-        arc = [B, A, point_on_arc]
-        arc_start_i = [pt[0] for pt in self.wkp.path].index(arc[1])
-        self.wkp.path.insert(arc_start_i, arc)
+        if is_pos:
+            arc = [B, A, point_on_arc]
+        else:
+            arc = [A, B, point_on_arc]
+        arc_start_i = [pt[0] for pt in loop].index(arc[1])
+        loop.insert(arc_start_i, arc)
