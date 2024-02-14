@@ -85,19 +85,6 @@ class Cut():
         self.objects = [saw, wkp]
         self.patches = saw.patches + wkp.patches
 
-    def calibrate(self, **kwargs):
-        for key, arg in kwargs:
-            if key == "a0": self.a0 = arg
-            elif key == "a1": self.a1 = arg
-            elif key == "a2": self.a2 = arg
-            elif key == "a3": self.a3 = arg
-            elif key == "a4": self.a4 = arg
-            elif key == "b0": self.b0 = arg
-            elif key == "b1": self.b1 = arg
-            elif key == "b2": self.b2 = arg
-            elif key == "b3": self.b3 = arg
-            elif key == "b4": self.b4 = arg
-
     def set(self, **kwargs):
         """Updates parameters in the saw."""
         for object in self.objects:
@@ -176,9 +163,7 @@ class Cut():
         """Returns true if the workpiece is entirely enclosed inside the blade circle 
         (indicating a complete cut)."""
         for loop in self.wkp.loops:
-            if self.checkLoopEnclosedInBlade(loop):
-                continue
-            else:
+            if not self.checkLoopEnclosedInBlade(loop):
                 return False
         return True
     
@@ -229,6 +214,7 @@ class Cut():
         """Returns the points arranged CCW so that odd points are entry points and even points
         are exit points for the blade passing through the wkp."""
         intx_pts, seg_indices = geo.sortPointsByTheta(intx_pts, self.blade_center, [seg_indices])
+        #TODO: Pass blade direction (CW/CWW) to function call
         if not self.checkIntxPointsAreInOut(*intx_pts[:2]):
             intx_pts = intx_pts[-1:] + intx_pts[:-1]
             seg_indices = seg_indices[-1:] + seg_indices[:-1]
@@ -289,7 +275,7 @@ class Cut():
         return segs
 
     def clipSegmentsOutsideCircle(self, seg, intx_pt, outside: bool=False):
-        """Clip the portion of the segments found outside blade circle on a single side, biased
+        """Remove the portion of the segments found outside blade circle on a single side, biased
         towards the first point in the segment."""
         #TODO: check layout
         if len(seg) > 2: center = geo.calcCircleCenter(*seg)
@@ -308,8 +294,9 @@ class Cut():
         return seg
     
     def findVertexByIntxPt(self, pt, seg: list) -> list:
-        """Returns a vertex in the loop that is within euclidean distance of the given point,
-        pt. If there are no vertices within that distance, returns None."""
+        """Returns a vertex in the loop that whose euclidean distance to the given point,
+        pt, is less than the workpiece tolerance. If there are no vertices within that distance, 
+        returns None."""
         tol = self.wkp.tol
         for vtx in seg[0:2]:
             if geo.pointDistance(pt, vtx) < tol:
@@ -364,27 +351,27 @@ class Cut():
         
         clipped_segs = list()
         is_pos = self.loopIndexingIsPos(intx_pts, seg_indices, loop)
-        # for p in range(len(intx_pts)):
-        #     idx = seg_indices[p]
-        #     is_in = idx % 2 == 0
-        #     c_s = self.clipSegment(loop[idx], intx_pts[p], is_pos, is_in)
+        for p in range(len(intx_pts)):
+            idx = seg_indices[p]
+            is_in = p % 2 == 0
+            c_s = self.clipSegment(loop[idx], intx_pts[p], is_pos, is_in)
+            close_vtx = self.findVertexByIntxPt(intx_pts[p], loop[seg_indices[p]])
+            if close_vtx is not None: 
+                c_s = loop[seg_indices[p]] #intx_pt is too close to loop vertex to clip.
+                intx_pts[p] = close_vtx
+            clipped_segs.append(c_s)
+            
+        # for p in p_idxs:
+        #     in_seg, out_seg = self.findClippedSegs(*seg_indices[p:p+2], *intx_pts[p:p+2], is_pos, loop)
         #     close_vtx = self.findVertexByIntxPt(intx_pts[p], loop[seg_indices[p+1]] )
         #     if close_vtx is not None: 
         #         in_seg = loop[seg_indices[p]] #intx_pt is too close to loop vertex to clip.
         #         intx_pts[p] = close_vtx
-        #     clipped_segs.append(c_s)
-            
-        for p in p_idxs:
-            in_seg, out_seg = self.findClippedSegs(*seg_indices[p:p+2], *intx_pts[p:p+2], is_pos, loop)
-            close_vtx = self.findVertexByIntxPt(intx_pts[p], loop[seg_indices[p+1]] )
-            if close_vtx is not None: 
-                in_seg = loop[seg_indices[p]] #intx_pt is too close to loop vertex to clip.
-                intx_pts[p] = close_vtx
-            close_vtx = self.findVertexByIntxPt(intx_pts[p+1], loop[seg_indices[p+1]] )
-            if close_vtx is not None: 
-                out_seg = loop[seg_indices[p+1]] 
-                intx_pts[p+1] = close_vtx
-            clipped_segs.extend([in_seg, out_seg])
+        #     close_vtx = self.findVertexByIntxPt(intx_pts[p+1], loop[seg_indices[p+1]] )
+        #     if close_vtx is not None: 
+        #         out_seg = loop[seg_indices[p+1]] 
+        #         intx_pts[p+1] = close_vtx
+        #     clipped_segs.extend([in_seg, out_seg])
 
         new_path = self.makeNewPath(seg_indices, clipped_segs, is_pos, loop)
         for p in p_idxs:
@@ -427,21 +414,27 @@ class Cut():
         """Returns the clipped segment(s) intersecting the blade circle that remain 
         (not enclosed in the blade circle) at the point pt.
         """
-        if is_pos and is_in or not (is_pos or is_in):
-            clipped_seg = [pt, seg[1]]
+        if is_pos:
+            if is_in:
+                clipped_seg = [pt, seg[1]]
+            else:
+                clipped_seg = [seg[0], pt]
         else:
-            clipped_seg = [seg[0], pt]
+            if is_in:
+                clipped_seg = [seg[0], pt]
+            else:
+                clipped_seg = [pt, seg[1]]
 
         # Generate additional point for arcs
         if len(seg) == 3: 
             clipped_seg = self.generateClippedArcSeg2(seg, clipped_seg)
         return clipped_seg
     
-    def generateClippedArcSeg(self, arc_seg, endpoints):
+    def generateClippedArcSeg2(self, arc_seg, endpoints):
         """Generates an arbitrary segement for an arc bounded by the endpoints and coincident
         with the arc segment."""
-        arc_center = geo.calcCircleCenter(arc_seg)
-        if not geo.arcIsCCW(arc_seg, arc_center):
+        arc_center = geo.calcCircleCenter(*arc_seg)
+        if not geo.arcIsCCW(*arc_seg, arc_center):
             endpoints.append(geo.generatePointOnArc(*reversed(endpoints), arc_center))
         else:
             endpoints.append(geo.generatePointOnArc(*endpoints, arc_center))

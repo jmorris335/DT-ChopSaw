@@ -167,6 +167,13 @@ class Blade(DynamicBlock):
         radial_line_path = self.plotRadialLine(x, y)
         self.patches[1].set_path(radial_line_path)
 
+    def getNumEngagedTeeth(self, swept_angle: float):
+        """Returns the number of engaged in the blade, for an engagement over the given angle 
+        (in radians)."""
+        circum_prop = swept_angle / (2 * np.pi)
+        num_teeth = (circum_prop * self.num_teeth) // 1
+        return num_teeth
+
     def __str__(self):
         """Returns a string describing the object."""
         return "Saw blade (ID=" + str(self.id) + ")"
