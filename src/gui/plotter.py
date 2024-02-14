@@ -91,15 +91,20 @@ def animate(entity, actions: list, rate: float=1/30):
     plt.show(block=False)
     plt.pause(rate)
 
+    data = list()
     for action in actions:
         entity.set(**action)
         entity.step()
-        entity.updatePatches()   
+        entity.updatePatches()
+        if hasattr(entity, 'getData'):
+            data.append([actions.index(action) / len(actions) * 10, entity.getData()[0]])
         
         bm.update()
         plt.pause(rate)
 
     plt.show(block=True)
+    # if hasattr(entity, 'getData'):
+    #     plotPath([d[0] for d in data], [d[1] for d in data])
 
 def initializePlot():
     fig, ax = plt.subplots()
@@ -140,3 +145,11 @@ def makeLinearPath(action_bounds: dict, num_steps: int=100):
             action[key] = val[0] + (val[1] - val[0]) / (num_steps-1) * i
         actions.append(action)
     return actions
+
+def plotPath(x, y):
+    fig, ax = plt.subplots()
+    ax.plot(x, y, lw=2)
+    ax.set_title('Torque Load')
+    ax.set_xlabel('Time (s)')
+    ax.set_ylabel('Torque (N*m)')
+    plt.show()

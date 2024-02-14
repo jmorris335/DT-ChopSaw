@@ -23,11 +23,6 @@ def calcCircleCenter(A, B, C):
     """Finds the center of a circle when 3 points on the circle's edge are inputted. Each
     inputted point must be iterable, where the first two components are considered the x 
     and y coordinates."""
-    try:
-        if len(A) < 2 or len(B) < 2 or len(C) < 2: 
-            raise(Exception("Arc defined using scalar points."))
-    except(TypeError): 
-        raise(Exception("Arc defined using scalar points."))
     combfun = lambda a, b, c, x : (a[0]**2 + a[1]**2) * -(-1)**x * (b[x] - c[x])
     sumfun = lambda a, b, c, x : combfun(a, c, b, x) + combfun(b, a, c, x) + combfun(c, b, a, x)
     denom = 2 * (A[1]*B[0] - A[0]*B[1] - A[1]*C[0] + A[0]*C[1] - B[0]*C[1] + B[1]*C[0])
@@ -153,15 +148,15 @@ def findCircleCircleIntersections(a, b, c, d, r0, r1):
     y = (b+d)/2 + (d-b)*tempR/2/D**2 + np.array([-1,1]) * 2*(a-c)*delta/D**2
     return [x[0], y[0]], [x[1], y[1]]
 
-def checkIfPointsOnSegment(points, seg: list=None, A=None, B=None, C=None) -> list:
+def checkIfPointsOnSegment(points, seg: list) -> list:
     """Returns points found on the line or arc terminated by points A and B. The segment is 
     interpreted as an arc if C is passed, where C is an arbitrary point on an arc. All parameters
     should be arrays of length two, where the elements represent (x, y) coordinates."""
     if not hasattr(points, '__len__'): points = [points]
     if not any(points): return [None]
-    if seg is not None:
-        if len(seg) < 3: return checkIfPointsOnLine(points, *seg)
-        else: return checkIfPointsOnArc(points, *seg)
+    if len(seg) < 3: 
+        return checkIfPointsOnLine(points, *seg)
+    return checkIfPointsOnArc(points, *seg)
 
 def checkIfPointsOnLine(points, A, B) -> list:
     """Returns all points found on the line terminated by points A and B. All parameters
@@ -347,27 +342,27 @@ def arcIsCCW(A, B, C, center=None):
 
 def pointDistance(A, B):
     """Returns the Euclidean distance between points at A and B."""
-    sum = 0.
-    for i in range(min(len(A), len(B))):
-        sum += (B[i] - A[i])**2
-    return np.sqrt(sum)
+    radicand = sum([(B[i] - A[i])**2 for i in range(min(len(A), len(B)))])
+    return np.sqrt(radicand)
 
-def pointSegDistance(P, seg):
-    """Returns the maximum distance between the point P and the segment."""
+def pointSegDistance(P, seg, is_max: bool=True):
+    """Returns the extreme distance (maximum by default) between a point P and a
+    given segment."""
+    extreme = max if is_max else min
     if len(seg) < 3:
-        return max([pointDistance(P, seg_pt) for seg_pt in seg])
+        return extreme([pointDistance(P, seg_pt) for seg_pt in seg])
+    
     center = calcCircleCenter(*seg)
     radius = calcCircleRadius(seg[0], center)
-    
-    max_theta = -np.arctan2(P[1] - center[1], P[0] - center[0])
-    max_pt = polar2xy(radius, max_theta)
-    shiftPoints(max_pt, center)
-    if checkIfPointsOnArc([max_pt], *seg, center): 
-        max_dist = pointDistance(P, max_pt)
-        return max_dist
+    extreme_theta = np.arctan2(P[1] - center[1], P[0] - center[0]) + (np.pi if is_max else 0)
+    extreme_pt = polar2xy(radius, extreme_theta)
+    shiftPoints(extreme_pt, center)
+    if checkIfPointsOnArc([extreme_pt], *seg, center): 
+        extreme_dist = pointDistance(P, extreme_pt)
+        return extreme_dist
     
     endpt_dist = [pointDistance(P, seg_pt) for seg_pt in seg[:2]]
-    return max(endpt_dist)
+    return extreme(endpt_dist)
 
 def sortPointsByTheta(pts, center=None, other_lists=list()):
     """Orders the provided points by angle of intersection versus the horizontal axis.

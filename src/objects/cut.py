@@ -56,9 +56,6 @@ class Cut():
 
         # Inputs
         self.V = findDefault(self.saw.blade.omega_blade*self.saw.blade.radius_blade, "V", kwargs)
-        self.x_arm = findDefault(self.saw.arm.x_arm, "x_arm", kwargs)
-        self.theta_arm = findDefault(self.saw.arm.theta_arm, "theta_arm", kwargs)
-        self.phi_arm = findDefault(self.saw.arm.phi_arm, "phi_arm", kwargs)
 
         # Outputs
         self.chip_depth = findDefault(0., "chip_depth", kwargs)
@@ -115,7 +112,17 @@ class Cut():
     def calcCutArea(self):
         """Returns the area of the chip cross section."""
         t_c = self.chip_depth
-        return t_c * self.saw.blade.kerf
+        return t_c * self.saw.blade.kerf_blade
+    
+    def calcTangentForce(self):
+        """Returns the force tangent the to cutting tool."""
+        K = self.calcPressureCoef(self.a0, self.a1, self.a2, self.a3, self.a4)
+        A = self.calcCutArea()
+        return -K*A
+    
+    def getData(self):
+        """This needs to become part of a greater chain of getting data from each primary object"""
+        return [self.saw.motor.calcTorque()]
     
     def __str__(self):
         """Returns a string describing the object."""
@@ -145,6 +152,8 @@ class Cut():
             if self.checkLoopEnclosedInBlade(loop):
                 self.wkp.loops[i] = list()
                 continue
+            if self.checkBladeOutsideLoop(loop):
+                continue
             intx_pts, seg_indices = self.findBladeWkpIntxs(loop)
             if intx_pts is None:
                 continue
@@ -154,6 +163,10 @@ class Cut():
         self.chip_depth = np.mean(chip_depths)
         self.wkp.loops = self.wkp.cleanLoops()
         self.updatePatches()
+
+        # Apply derived coeffs
+        torque = self.calcTangentForce() * self.saw.blade.radius_blade
+        # self.saw.blade.applyTorque(torque)
 
         for object in self.objects:
             object.step()
@@ -169,10 +182,21 @@ class Cut():
         return True
     
     def checkLoopEnclosedInBlade(self, loop) -> bool:
-        """Returns True if the loop is entirely enclosed inside the blade circle."""
+        """Returns True if the loop is entirely enclosed inside the blade circle. The blade 
+        circle is allowed to intersecting within the tolerance of the workpiece."""
         for seg in loop:
-            seg_dist = geo.pointSegDistance(self.blade_center, seg)
-            if seg_dist - self.saw.blade.radius_blade > -geo.eps:
+            seg_dist = geo.pointSegDistance(self.blade_center, seg, is_max=True)
+            if seg_dist - self.saw.blade.radius_blade > -self.wkp.tol:
+                return False
+        return True
+    
+    def checkBladeOutsideLoop(self, loop) -> bool:
+        """Returns True if the blade circle does not intersect (or only tangentially 
+        intersects) the loop. Fails if the blade is completely enclosed within the loop.
+        The blade is allowed to be as close as the tolerance of the workpiece."""
+        for seg in loop:
+            seg_dist = geo.pointSegDistance(self.blade_center, seg, is_max=False)
+            if seg_dist - self.saw.blade.radius_blade < -self.wkp.tol:
                 return False
         return True
 
@@ -224,7 +248,7 @@ class Cut():
         else:
             check_pt = geo.generatePointOnArc(P1, P2, self.blade_center)
         return self.wkp.pointInLoop(check_pt)
-    
+
     def calcAverageChipDepth(self, intx_pts, seg_indices, loop: list) -> float:
         """Construed as the average of the distance between the blade circle and profile
         path."""
@@ -265,11 +289,31 @@ class Cut():
 
     def clipSegmentsOutsideCircle(self, seg, intx_pt, outside: bool=False):
         """Clip the portion of the segments found outside blade circle on a single side, biased
-        towards the first vertex."""
+        towards the first point in the segment."""
+        #TODO: check layout
+        if len(seg) > 2: center = geo.calcCircleCenter(*seg)
+
+        close_vtx = self.findVertexByIntxPt(intx_pt, seg)
+        if close_vtx is not None: return seg #intx_pt is too close to loop vertex to clip.
         index = not geo.checkPointInCircle(seg[0], self.blade_center, self.saw.blade.radius_blade)
         if outside: index = not index
         seg[index] = intx_pt
+        # Check all points are valid
+        if len(seg) > 2:
+            if geo.pointDistance(seg[0], seg[2]) < self.wkp.tol:
+                seg[1] = geo.generatePointOnArc(*seg[0:2], center)
+            if geo.pointDistance(seg[1], seg[2]) < self.wkp.tol:
+                seg[2] = geo.generatePointOnArc(*seg[0:2], center)
         return seg
+    
+    def findVertexByIntxPt(self, pt, seg: list) -> list:
+        """Returns a vertex in the loop that is within euclidean distance of the given point,
+        pt. If there are no vertices within that distance, returns None."""
+        tol = self.wkp.tol
+        for vtx in seg[0:2]:
+            if geo.pointDistance(pt, vtx) < tol:
+                return vtx
+        return None
     
     def calcRadialDistanceByPoints(self, profile, n: int=100) -> float:
         """
@@ -319,8 +363,21 @@ class Cut():
         
         clipped_segs = list()
         is_pos = self.loopIndexingIsPos(intx_pts, seg_indices, loop)
+        # for p in range(len(intx_pts)):
+        #     idx = seg_indices[p]
+        #     is_in = idx % 2 == 0
+        #     clipped_segs.append(self.clipSegment(loop[idx], intx_pts[p], is_pos, is_in))
         for p in p_idxs:
-            clipped_segs.extend(self.findClippedSegs(*seg_indices[p:p+2], *intx_pts[p:p+2], is_pos, loop))
+            in_seg, out_seg = self.findClippedSegs(*seg_indices[p:p+2], *intx_pts[p:p+2], is_pos, loop)
+            close_vtx = self.findVertexByIntxPt(intx_pts[p], loop[seg_indices[p+1]] )
+            if close_vtx is not None: 
+                in_seg = loop[seg_indices[p]] #intx_pt is too close to loop vertex to clip.
+                intx_pts[p] = close_vtx
+            close_vtx = self.findVertexByIntxPt(intx_pts[p+1], loop[seg_indices[p+1]] )
+            if close_vtx is not None: 
+                out_seg = loop[seg_indices[p+1]] 
+                intx_pts[p+1] = close_vtx
+            clipped_segs.extend([in_seg, out_seg])
 
         new_path = self.makeNewPath(seg_indices, clipped_segs, is_pos, loop)
         for p in p_idxs:
@@ -338,6 +395,7 @@ class Cut():
         twice, in which case the function parameterizes the line and finds which point (starting or 
         ending) the point lies next to.
         """
+        #TODO: Make this function independent, not both in and out
         num_segs = len(loop)
         # u is the remaining seg connected to in, v is the remaining seg connected to out
         if is_pos:
@@ -354,7 +412,33 @@ class Cut():
             in_seg = self.generateClippedArcSeg(i_in, in_seg, loop)
         if len(loop[i_out]) == 3: 
             out_seg = self.generateClippedArcSeg(i_out, out_seg, loop)
+
         return in_seg, out_seg
+    
+    # #TODO: Transform clipOutsideCircle and findClippedSegments to single function =>
+    # def clipSegment(self, seg, pt, is_pos: bool, is_in: bool):
+    #     """Returns the clipped segment(s) intersecting the blade circle that remain 
+    #     (not enclosed in the blade circle) at the point pt.
+    #     """
+    #     if is_pos and is_in or not (is_pos or is_in):
+    #         clipped_seg = [pt, seg[1]]
+    #     else:
+    #         clipped_seg = [seg[0], pt]
+
+    #     # Generate additional point for arcs
+    #     if len(seg) == 3: 
+    #         clipped_seg = self.generateClippedArcSeg2(seg, clipped_seg)
+    #     return clipped_seg
+    
+    def generateClippedArcSeg(self, arc_seg, endpoints):
+        """Generates an arbitrary segement for an arc bounded by the endpoints and coincident
+        with the arc segment."""
+        arc_center = geo.calcCircleCenter(arc_seg)
+        if not geo.arcIsCCW(arc_seg, arc_center):
+            endpoints.append(geo.generatePointOnArc(*reversed(endpoints), arc_center))
+        else:
+            endpoints.append(geo.generatePointOnArc(*endpoints, arc_center))
+        return endpoints
 
     def loopIndexingIsPos(self, intx_pts, seg_indices, loop: list):
         """Returns True if the segment indices for the loop starting at the point A on the 

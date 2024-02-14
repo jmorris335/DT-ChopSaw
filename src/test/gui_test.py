@@ -12,15 +12,15 @@ def animation_test():
     wkp = makeGFSstrut(.25)
     # wkp = makeTwoWkp(.05)
     saw = Saw()
-    saw.set(x_arm=0, theta_arm=np.pi/2)
+    saw.set(x_arm=0.08, theta_arm=np.pi/2)
     cut = Cut(saw, wkp)
-    action_bounds1 = {'x_arm' : [0.08, 0.15], 
+    action_bounds1 = {'x_arm' : [0.08, .15], 
                       'theta_arm' : [np.pi/2, 0],
                       'torque' : [.1, .1]}
-    action_bounds2 = {'x_arm' : [0, 0.1049], 
+    action_bounds2 = {'x_arm' : [0.15, .15], 
                       'torque' : [.1, .1]}
-    actions1 = makeLinearPath(action_bounds1, 99)
-    actions2 = makeLinearPath(action_bounds2, 100)
-    actions = actions1
+    actions1 = makeLinearPath(action_bounds1, 30)
+    actions2 = makeLinearPath(action_bounds2, 30)
+    actions = actions1 + actions2
 
-    animate(cut, actions, rate=.001)
+    animate(cut, actions, rate=.05)

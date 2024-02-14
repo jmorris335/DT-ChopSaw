@@ -102,8 +102,6 @@ class Workpiece:
         if findDepth(segs) == 4: #Inputted loops instead of segs
             segs = [seg for loop in segs for seg in loop]
         loops = self.findLoops(segs)
-        for loop in loops:
-            if len(loop) < 2: raise(Exception("Not enough segments provided in loop."))
         return loops
     
     def findLoops(self, segs):
@@ -122,23 +120,24 @@ class Workpiece:
             loop.append(seg)
         if len(loop) != 0:
             loops.append(close_loop(loop))
-        for loop in loops:
-            loop = self.validateLoop(loop)
+        self.validateLoops(loops)
         return loops
     
-    def validateLoop(self, loop):
+    def validateLoops(self, loops: list=None):
         """Makes sure that all loops are composed of valid segments."""
-        num_segs = len(loop)
-        for i, seg in enumerate(loop):
-            if len(seg) > 3: seg = seg[0:3]
-            if abs(seg[0][0] - seg[1][0]) < self.tol and abs(seg[0][1] - seg[1][1]) < self.tol:
-                del(loop[i])
-                if len(loop) < 2:
-                    return list()
-                prev_seg = loop[(i - 1) % num_segs]
-                next_seg = loop[(i + 1) % num_segs]
-                prev_seg[1] = next_seg[0]
-        return loop
+        if loops is None: loops = self.loops
+        for i, loop in enumerate(loops):
+            for j, seg in enumerate(loop):
+                if len(seg) > 3: seg = seg[0:3]
+                if len(seg) < 2 or geo.pointDistance(seg[0], seg[1]) < self.tol:
+                    del(loop[j])
+                    if len(loop) > 1:
+                        prev_seg = loop[(j - 1) % len(loop)]
+                        next_seg = loop[(j + 1) % len(loop)]
+                        prev_seg[1] = next_seg[0]
+            if len(loop) < 2: 
+                del(loops[i])
+        return loops
         
     def set(self, **kwargs):
         """Determines if any passed keyword arguments are attributes of the entity, and 
@@ -255,13 +254,14 @@ class Workpiece:
                         bounded = len(geo.checkIfPointsOnLine([intx_pt], *seg[:2])) > 0
                     else:
                         bounded = len(geo.checkIfPointsOnArc([intx_pt], *seg))
+                    #TODO: Does the intx_pt ever exist NOT on line(A, P) if it is bounded on the seg?
                     bounded *= len(geo.checkIfPointsOnLine([intx_pt], A, P)) > 0
                     if not bounded: continue
                     
-                    at_vertex = np.sqrt(sum([(intx_pt[i] - seg[0][i]) ** 2 for i in range(2)])) < geo.eps
-                    at_vertex += np.sqrt(sum([(intx_pt[i] - seg[1][i]) ** 2 for i in range(2)])) < geo.eps
+                    at_vertex = geo.pointDistance(intx_pt, seg[0]) < self.tol
+                    at_vertex *= geo.pointDistance(intx_pt, seg[1]) < self.tol
                     if at_vertex:
-                        if self.path.index(seg) % 2: crosses += 1
+                        if self.loops.index(seg) % 2: crosses += 1
                     else:
                         crosses += 1
         

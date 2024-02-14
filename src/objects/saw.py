@@ -75,8 +75,10 @@ class Saw:
 
     def step(self):
         if self.power_on: self.motor.applyVoltage(18)
+        # self.blade.applyTorque(self.motor.calcTorque())
         for object in self.objects:
             object.step()
+        self.motor.applyLoad(self.blade.torque)
 
     def updatePatches(self):
         self.arm.updatePatches()

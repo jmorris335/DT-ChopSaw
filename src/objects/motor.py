@@ -116,5 +116,9 @@ class Motor(DynamicBlock):
     def applyLoad(self, load: float=0.):
         self.load = load
 
+    def calcTorque(self):
+        """Returns the torque based off the current in the motor."""
+        return self.K_M * self.current
+
     def __str__(self):
         return "DC Motor (ID=" + str(self.id) + ")"
