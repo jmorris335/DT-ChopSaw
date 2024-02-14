@@ -10,8 +10,8 @@
 
 import numpy as np
 
-from src.aux.support import findDefault, shiftIndices
-import src.aux.geometry as geo
+from src.auxiliary.support import findDefault
+import src.auxiliary.geometry as geo
 from src.objects.saw import Saw
 from src.objects.workpiece import Workpiece
 

@@ -9,7 +9,7 @@
 """
 import numpy as np
 
-from src.aux.support import findDefault
+from src.auxiliary.support import findDefault
 from src.objects.blade import Blade
 from src.objects.motor import Motor
 from src.objects.structure import Arm, Table

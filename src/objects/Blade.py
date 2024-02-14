@@ -15,8 +15,8 @@ import numpy as np
 from matplotlib.patches import Circle, PathPatch
 from matplotlib.path import Path
 
-from src.aux.support import findDefault
-from src.aux.dynamic import DynamicBlock
+from src.auxiliary.support import findDefault
+from src.auxiliary.dynamic import DynamicBlock
 
 class Blade(DynamicBlock):
     '''

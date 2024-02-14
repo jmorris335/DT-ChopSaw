@@ -1,7 +1,7 @@
 import numpy as np
 from matplotlib.path import Path
 
-import src.aux.geometry as geo
+import src.auxiliary.geometry as geo
 
 def arc2Bezier(A, B, C):
     """Converts an arc (terminated at points A and B and having point C on the

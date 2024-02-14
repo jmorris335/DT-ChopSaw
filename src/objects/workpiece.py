@@ -12,9 +12,9 @@ import numpy as np
 from matplotlib.patches import PathPatch
 from matplotlib.path import Path
 
-import src.aux.geometry as geo
+import src.auxiliary.geometry as geo
 import src.gui.gui_support as gui
-from src.aux.support import findDefault, findDepth
+from src.auxiliary.support import findDefault, findDepth
 
 class Workpiece:
     '''

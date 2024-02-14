@@ -10,8 +10,8 @@
 | - 0.0, 6 Dec 2023: Initialized
 """
 
-from src.aux.support import findDefault
-from src.aux.dynamic import DynamicBlock
+from src.auxiliary.support import findDefault
+from src.auxiliary.dynamic import DynamicBlock
 
 class Motor(DynamicBlock):
     """

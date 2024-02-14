@@ -10,7 +10,7 @@
 import numpy as np
 from matplotlib.patches import Rectangle
 
-from src.aux.support import findDefault
+from src.auxiliary.support import findDefault
 
 class Arm:
     """
