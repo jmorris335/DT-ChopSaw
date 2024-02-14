@@ -179,7 +179,7 @@ class Workpiece:
         """
         if loops is None: loops = self.loops
         if len(loops) == 0: return 0.
-        min_pt = loops[0][0][0][0]
+        min_pt = np.inf
         for loop in loops:
             for seg in loop:
                 if len(seg) == 2: #line

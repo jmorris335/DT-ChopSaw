@@ -161,6 +161,7 @@ class Cut():
             chip_depths.append(loop_chip_depth)
             self.wkp.loops[i] = self.restructurePath(intx_pts, seg_indices, loop)
         self.chip_depth = np.mean(chip_depths)
+        #TODO: Don't need to clean every loop, just the ones that were split
         self.wkp.loops = self.wkp.cleanLoops()
         self.updatePatches()
 
@@ -366,7 +367,13 @@ class Cut():
         # for p in range(len(intx_pts)):
         #     idx = seg_indices[p]
         #     is_in = idx % 2 == 0
-        #     clipped_segs.append(self.clipSegment(loop[idx], intx_pts[p], is_pos, is_in))
+        #     c_s = self.clipSegment(loop[idx], intx_pts[p], is_pos, is_in)
+        #     close_vtx = self.findVertexByIntxPt(intx_pts[p], loop[seg_indices[p+1]] )
+        #     if close_vtx is not None: 
+        #         in_seg = loop[seg_indices[p]] #intx_pt is too close to loop vertex to clip.
+        #         intx_pts[p] = close_vtx
+        #     clipped_segs.append(c_s)
+            
         for p in p_idxs:
             in_seg, out_seg = self.findClippedSegs(*seg_indices[p:p+2], *intx_pts[p:p+2], is_pos, loop)
             close_vtx = self.findVertexByIntxPt(intx_pts[p], loop[seg_indices[p+1]] )
@@ -416,19 +423,19 @@ class Cut():
         return in_seg, out_seg
     
     # #TODO: Transform clipOutsideCircle and findClippedSegments to single function =>
-    # def clipSegment(self, seg, pt, is_pos: bool, is_in: bool):
-    #     """Returns the clipped segment(s) intersecting the blade circle that remain 
-    #     (not enclosed in the blade circle) at the point pt.
-    #     """
-    #     if is_pos and is_in or not (is_pos or is_in):
-    #         clipped_seg = [pt, seg[1]]
-    #     else:
-    #         clipped_seg = [seg[0], pt]
+    def clipSegment(self, seg, pt, is_pos: bool, is_in: bool):
+        """Returns the clipped segment(s) intersecting the blade circle that remain 
+        (not enclosed in the blade circle) at the point pt.
+        """
+        if is_pos and is_in or not (is_pos or is_in):
+            clipped_seg = [pt, seg[1]]
+        else:
+            clipped_seg = [seg[0], pt]
 
-    #     # Generate additional point for arcs
-    #     if len(seg) == 3: 
-    #         clipped_seg = self.generateClippedArcSeg2(seg, clipped_seg)
-    #     return clipped_seg
+        # Generate additional point for arcs
+        if len(seg) == 3: 
+            clipped_seg = self.generateClippedArcSeg2(seg, clipped_seg)
+        return clipped_seg
     
     def generateClippedArcSeg(self, arc_seg, endpoints):
         """Generates an arbitrary segement for an arc bounded by the endpoints and coincident
