@@ -76,7 +76,7 @@ class Motor(Twin, DynamicBlock):
         DynamicBlock.__init__(self, A=self.A, B=self.B)
 
         # Twin inherited methods/attributes overloading
-        self.log = Logger(self)
+        self.logger = Logger(self)
 
     def getStates(self)-> list:
         """Returns a array of the current values for the dynamic state variables."""
@@ -90,9 +90,9 @@ class Motor(Twin, DynamicBlock):
         """Sets the state variables for the object in order: theta, omega, phi, phidot."""
         if len(states) == DynamicBlock.getNumStates(self):
             self.theta, self.omega, self.current = states
-            self.log.setData('load', states[0])
-            self.log.setData('omega', states[1])
-            self.log.setData('current', states[2])
+            self.setData('load', states[0])
+            self.setData('omega', states[1])
+            self.setData('current', states[2])
         else: 
             raise Exception("Wrong number of states set for blade object (ID="+str(self.id) + ")")
 

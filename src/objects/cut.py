@@ -82,7 +82,7 @@ class Cut(Twin):
         self.blade_center = self.saw.bladePosition
 
         # Twin inherited methods/attributes overloading
-        self.log = Logger(self)
+        self.logger = Logger(self)
         self.objects = [self.saw, self.wkp]
         self.patches = self.saw.patches + self.wkp.patches
 
@@ -136,7 +136,7 @@ class Cut(Twin):
     def updateDynamics(self):
         """Updates the inputs for each object."""
         cut_torque = self.calcTangentForce() * self.saw.blade.radius_blade
-        self.log.addData("cut_torque", cut_torque)
+        self.logData("cut_torque", cut_torque)
         self.saw.blade.torque += cut_torque
 
     def performCutOperation(self):
@@ -157,7 +157,7 @@ class Cut(Twin):
             chip_depths.append(loop_chip_depth)
             self.wkp.loops[i] = self.restructurePath(intx_pts, seg_indices, loop)
         if len(chip_depths) > 0:
-            self.log.setData("cut_depth", np.mean(chip_depths))
+            self.setData("cut_depth", np.mean(chip_depths))
         self.wkp.loops = self.wkp.cleanLoops()
         self.updatePatches()
 

@@ -119,7 +119,7 @@ class Logger:
         entities_with_name = db.getEntriesWhere(self.csr, 'Twins', 'name', self.entity.name)
         return entities_with_name[-1][0]
 
-    def addData(self, label: str, val: float, time: float=None):
+    def addData(self, label: str, val: float, time_val: float=None):
         """Adds a data point to the collection.
         
         Parameters
@@ -129,9 +129,9 @@ class Logger:
         val : Any
             The value of the data being entered into the database.
         """
-        if time is None:
-            time = time.time()
-        values = [time, self.entity_id, label, val]
+        if time_val is None:
+            time_val = time.time()
+        values = [time_val, self.entity_id, label, val]
         columns = ['time', 'entity_id', 'label', 'value']
         db.addEntry(self.csr, 'SimData', values, columns)
 

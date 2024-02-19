@@ -59,7 +59,7 @@ class Arm(Twin):
         self.phi_arm = findDefault(0., "phi_arm", kwargs)
 
         # Twin inherited methods/attributes overloading
-        self.log = Logger(self)
+        self.logger = Logger(self)
         self.patches = self.plot()
 
     def plot(self, x=None, y=None):
@@ -143,4 +143,4 @@ class Table(Twin):
         self.theta_table = findDefault(0., "theta_table", kwargs)
 
         # Twin inherited methods/attributes overloading
-        self.log = Logger(self)
+        self.logger = Logger(self)
