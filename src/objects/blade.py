@@ -69,7 +69,7 @@ class Blade(Twin, DynamicBlock):
     def __init__(self, **kwargs):
         Twin.__init__(self, **kwargs)
 
-        #Primary Components
+        #Static Values
         self.name = findDefault("Blade", "name", kwargs)
         self.radius_blade = findDefault(.092, "radius_blade", kwargs)
         self.num_teeth = findDefault(56, "num_teeth", kwargs)
@@ -164,10 +164,6 @@ class Blade(Twin, DynamicBlock):
         self.patches[0].set(center=(x, y))
         radial_line_path = self.plotRadialLine(x, y)
         self.patches[1].set_path(radial_line_path)
-
-    def __str__(self):
-        """Returns a string describing the object."""
-        return self.entity.name
 
 class ToothType(Enum):
     """

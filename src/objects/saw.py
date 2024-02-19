@@ -55,16 +55,16 @@ class Saw(Twin):
                  table: Table=None, **kwargs):
         Twin.__init__(self, **kwargs)
 
-        # Primary attributes
-        self.name = findDefault("Saw", "name", kwargs)
-        self.powerswitch_on = findDefault(False, "powerswitch_on", kwargs)
-        self.supplied_voltage = findDefault(18., "supplied_voltage", kwargs)
-
         # Components
         self.blade = blade if blade is not None else Blade()
         self.motor = motor if motor is not None else Motor()
         self.arm = arm if arm is not None else Arm()
         self.table = table if table is not None else Table()
+
+        # Static Values
+        self.name = findDefault("Saw", "name", kwargs)
+        self.powerswitch_on = findDefault(False, "powerswitch_on", kwargs)
+        self.supplied_voltage = findDefault(18., "supplied_voltage", kwargs)
 
         # Twin inherited methods/attributes overloading
         self.logger = Logger(self)
@@ -114,7 +114,3 @@ class Saw(Twin):
         x = self.arm.x_arm - self.arm.gap_arm + self.arm.l0_rotating_arm * np.cos(self.arm.theta_arm)
         y = self.arm.h0_arm + self.arm.l0_rotating_arm * np.sin(self.arm.theta_arm) * np.cos(self.arm.phi_arm)
         return x, y
-
-    def __str__(self):
-        """Returns a string describing the object."""
-        return self.entity.name

@@ -41,7 +41,7 @@ class Twin:
         self.name = findDefault("Twin", 'name', kwargs)
         self.time_step = findDefault(0.01, 'time_step', kwargs)
         self.sim_time = findDefault(0., 'sim_time', kwargs)
-        
+
         self.logger = 'Logger type should be implemented by inheriting class.'
         self.objects = list() #list of objects aggregated (but not identifical) to twin
         self.patches = list() #list of patches belonging to the twin
@@ -69,6 +69,13 @@ class Twin:
         """Updates all information with the twin based on any given parameters.
         
         Note that the function also increases the time step.
+
+        Notes
+        -----
+        The only properties that need to be updated during the step routine are those
+        with relationships to other properties. Each relationship needs to be checked
+        and updated in a non-arbitrary order during the step routine, so that no values 
+        are out of relationship by the end of the simulation step.
         """
         self.sim_time += self.time_step
         for object in self.objects:
@@ -100,3 +107,7 @@ class Twin:
             The value of the data being entered into the database.
         """
         self.logger.addData(*args)
+
+    def __str__(self):
+        """Returns a string describing the object."""
+        return f'{self.name} object'

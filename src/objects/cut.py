@@ -57,20 +57,13 @@ class Cut(Twin):
     '''
     def __init__(self, saw: Saw=None, wkp: Workpiece=None, **kwargs):
         Twin.__init__(self, **kwargs)
-        
-        # Primary Attributes
-        self.name = findDefault("Cut", "name", kwargs)
-        self.all_cut = False
 
         # Components
         self.saw = saw if saw is not None else Saw()
         self.wkp = wkp if wkp is not None else Workpiece()
-
-        # Dynamic Values
-        self.cut_depth = findDefault(0., "chip_depth", kwargs)
-        self.blade_center = self.saw.bladePosition
-
-        # Calibration Constants
+        
+        # Static Values
+        self.name = findDefault("Cut", "name", kwargs)
         self.a0 = findDefault(0., "a0", kwargs)
         self.a1 = findDefault(1., "a1", kwargs)
         self.a2 = findDefault(1., "a2", kwargs)
@@ -87,19 +80,34 @@ class Cut(Twin):
         temp_K = self.calcPressureCoef(self.b0, self.b1, self.b2, self.b3, self.b4)
         self.K_norm = findDefault(temp_K, "K_norm", kwargs)
 
+        # Dynamic Values
+        self.all_cut = False
+        self.cut_depth = findDefault(0., "chip_depth", kwargs)
+        self.blade_center = self.saw.bladePosition
+
         # Twin inherited methods/attributes overloading
         self.log = Logger(self)
         self.objects = [self.saw, self.wkp]
         self.patches = self.saw.patches + self.wkp.patches
 
-    def set(self, **kwargs):
-        """Updates parameters in the cut object and associated objects."""
-        for key, val in kwargs.items():
-            attr = getattr(self, key, None)
-            if attr is not None:
-                setattr(self, key, val)
-        for object in self.objects:
-            object.set(**kwargs)
+    def step(self):
+        """Finds the intersection between the blade and workpiece, calculating the average
+        radial height of the intersection, and then restructures the workpiece path to be the
+        same as the blade circle where intersecting (removing cut material)."""
+        if self.all_cut: return
+        self.blade_center = self.saw.bladePosition
+
+        if not self.all_cut:
+            if self.checkWkpEnclosedInBlade():
+                self.wkp.loops = list()
+                self.updatePatches()
+                self.all_cut = True
+                self.cut_depth = 0.0
+            else:
+                self.performCutOperation()
+
+        self.updateDynamics()
+        Twin.step(self)
 
     def calcNormalPressureCoef(self):
         """Calculates the pressure coefficients for the normal force on the rake face."""
@@ -129,38 +137,11 @@ class Cut(Twin):
         A = self.calcCutArea()
         return -K*A
     
-    def getData(self):
-        """This needs to become part of a greater chain of getting data from each primary object"""
-        return [self.saw.motor.calcTorque()]
-    
-    def __str__(self):
-        """Returns a string describing the object."""
-        return self.entity.name
-
     def updateDynamics(self):
         """Updates the inputs for each object."""
         cut_torque = self.calcTangentForce() * self.saw.blade.radius_blade
         self.log.addData("cut_torque", cut_torque)
         self.saw.blade.torque += cut_torque
-
-    def step(self):
-        """Finds the intersection between the blade and workpiece, calculating the average
-        radial height of the intersection, and then restructures the workpiece path to be the
-        same as the blade circle where intersecting (removing cut material)."""
-        if self.all_cut: return
-        self.blade_center = self.saw.bladePosition
-
-        if not self.all_cut:
-            if self.checkWkpEnclosedInBlade():
-                self.wkp.loops = list()
-                self.updatePatches()
-                self.all_cut = True
-                self.cut_depth = 0.0
-            else:
-                self.performCutOperation()
-
-        self.updateDynamics()
-        Twin.step(self)
 
     def performCutOperation(self):
         """Checks the workpiece and blade circle for intersections and clips the resulting 

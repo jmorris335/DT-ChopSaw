@@ -11,9 +11,10 @@ import numpy as np
 from matplotlib.patches import Rectangle
 
 from src.auxiliary.support import findDefault
+from src.objects.twin import Twin
 from db.logger import Logger
 
-class Arm:
+class Arm(Twin):
     """
     Primitive state model of the arm for a radial arm saw.
     
@@ -42,11 +43,10 @@ class Arm:
             The angular tilt of the blade (allowing for miter cuts), measured CCW from vertical.
     """
     def __init__(self, **kwargs):
-        self.id = findDefault("0", "id", kwargs)
-        self.name = f'Arm_{self.id}'
-        self.log = Logger(self)
+        Twin.__init__(self, **kwargs)
 
-        # Physical Constants
+        # Static Values
+        self.name = findDefault("Arm", "name", kwargs)
         self.h0_arm = findDefault(0.04, "h0_arm", kwargs)
         self.l0_rotating_arm = findDefault(.125, "l0_rotating_arm", kwargs)
         self.width_arm = findDefault(.05, "width_arm", kwargs)
@@ -58,19 +58,9 @@ class Arm:
         self.theta_arm = findDefault(0., "theta_arm", kwargs)
         self.phi_arm = findDefault(0., "phi_arm", kwargs)
 
-        # GUI Operations
+        # Twin inherited methods/attributes overloading
+        self.log = Logger(self)
         self.patches = self.plot()
-
-    def set(self, **kwargs):
-        """Determines if any passed keyword arguments are attributes of the entity, and 
-        sets them if so."""
-        for key, val in kwargs.items():
-            attr = getattr(self, key, None)
-            if attr is not None:
-                setattr(self, key, val)
-
-    def step(self):
-        pass
 
     def plot(self, x=None, y=None):
         """Returns a list of matplotlib.patches.Patch objects that represent the entity."""
@@ -129,13 +119,8 @@ class Arm:
         self.patches[2].set(xy = (x_ang, y))
         self.patches[2].rotation_point = (x_ang, y + .5*self.width_arm)
         self.patches[2].set_angle(self.theta_arm * 180 / np.pi)
-
-
-    def __str__(self):
-        """Returns a string describing the object."""
-        return "Arm (ID=" + str(self.id) + ")"
         
-class Table:
+class Table(Twin):
     """
     Primitive state model of the table of a radial arm saw.
     
@@ -149,24 +134,13 @@ class Table:
             view, with positive defined CCW from default (straight) cuts.
     """
     def __init__(self, **kwargs):
-        self.id = findDefault("0", "id", kwargs)
-        self.name = f'Arm_{self.id}'
-        self.log = Logger(self)
+        Twin.__init__(self)
+
+        #Static Values
+        self.name = findDefault("Table", "name", kwargs)
 
         # Dynamic Values
         self.theta_table = findDefault(0., "theta_table", kwargs)
 
-    def set(self, **kwargs):
-        """Determines if any passed keyword arguments are attributes of the entity, and 
-        sets them if so."""
-        for key, arg in kwargs.items():
-            attr = getattr(self, key, None)
-            if attr is not None:
-                setattr(self, key, arg)
-
-    def step(self):
-        pass
-
-    def __str__(self):
-        """Returns a string describing the object."""
-        return "Table (ID=" + str(self.id) + ")"
+        # Twin inherited methods/attributes overloading
+        self.log = Logger(self)
