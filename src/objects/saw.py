@@ -37,8 +37,10 @@ class Saw(Twin):
             The name of the saw entity.
         first_use_date : datetime, optional
             Date that the saw was first used.
-        power_on : bool, default=False
+        powerswitch_on : bool, default=False
             Indicates input has been given to enable power to the saw.
+        supplied_voltage : float, default=18.0
+            Voltage level supplied to the saw, presumably from the grid.
 
     Notes on Coordinate Systems
     ---------------------------
@@ -57,6 +59,7 @@ class Saw(Twin):
         self.name = findDefault("Saw", "name", kwargs)
         self.first_use_date = findDefault(None, "first_use_date", kwargs)
         self.powerswitch_on = findDefault(False, "powerswitch_on", kwargs)
+        self.supplied_voltage = findDefault(18., "supplied_voltage", kwargs)
         self.blade = blade if blade is not None else Blade()
         self.motor = motor if motor is not None else Motor()
         self.arm = arm if arm is not None else Arm()
@@ -83,6 +86,8 @@ class Saw(Twin):
             self.powerswitch_on = not self.powerswitch_on
         else:
             self.powerswitch_on = power_on
+        if self.powerswitch_on:
+            self.motor.voltage = self.supplied_voltage
         return self.powerswitch_on
 
     def step(self):
@@ -91,7 +96,7 @@ class Saw(Twin):
         self.logData("blade_position_x", self.bladePosition[0])
         self.logData("blade_position_y", self.bladePosition[1])
         
-        self.blade.applyTorque(self.motor.calcTorque())
+        self.blade.torque += (self.motor.calcTorque())
         super().step()
         self.motor.applyLoad(self.blade.torque)
 

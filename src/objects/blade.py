@@ -17,9 +17,10 @@ from matplotlib.path import Path
 
 from src.auxiliary.support import findDefault
 from db.logger import Logger
+from src.objects.twin import Twin
 from src.auxiliary.dynamic import DynamicBlock
 
-class Blade(DynamicBlock):
+class Blade(Twin, DynamicBlock):
     '''
     A primitive state model of a saw blade.
 
@@ -66,11 +67,9 @@ class Blade(DynamicBlock):
             The angular acceleration of the blade.
     ''' 
     def __init__(self, **kwargs):
-        self.id = findDefault("0", "id", kwargs)
-        self.name = f'Blade_{self.id}'
-        self.log = Logger(self)
-
-        # Physical Constants
+        Twin.__init__(self, **kwargs)
+        self.name = findDefault("Blade", "name", kwargs)
+        self.first_use_date = findDefault(None, "first_use_date", kwargs)
         self.age_blade = findDefault(0, "age_blade", kwargs)
         self.radius_blade = findDefault(.092, "radius_blade", kwargs)
         self.num_teeth = findDefault(56, "num_teeth", kwargs)
@@ -89,8 +88,6 @@ class Blade(DynamicBlock):
         self.phi_blade = findDefault(np.pi/2, "phi_blade", kwargs)
         self.phidot_blade = findDefault(0, "phidot_blade", kwargs)
         self.omega_blade = findDefault(0, "omega_blade", kwargs)
-
-        # Inputs
         self.torque = findDefault(0, "torque", kwargs)
 
         # Set up state-space model
@@ -99,18 +96,11 @@ class Blade(DynamicBlock):
                   [0, 0, 0, 1],
                   [0, 0, 0, 0]]
         self.B = [[0], [1 / self.moi_blade], [0], [0]]
-        super().__init__(A=self.A, B=self.B)
+        DynamicBlock.__init__(self, A=self.A, B=self.B)
 
-        # GUI operations
+        # Twin inherited methods/attributes overloading
+        self.logger = Logger(self)
         self.patches = self.plot()
-
-    def set(self, **kwargs):
-        """Determines if any passed keyword arguments are attributes of the entity, and 
-        sets them if so."""
-        for key, val in kwargs.items():
-            attr = getattr(self, key, None)
-            if attr is not None:
-                setattr(self, key, val)
 
     def getStates(self):
         """Returns a array of the current values for the dynamic state variables."""
@@ -122,14 +112,14 @@ class Blade(DynamicBlock):
     
     def setStates(self, states: list=[0., 0., 0., 0.]):
         """Sets the state variables for the object in order: theta, omega, phi, phidot."""
-        if len(states) == super().getNumStates():
+        if len(states) == DynamicBlock.getNumStates(self):
             self.theta_blade, self.omega_blade, self.phi_blade, self.phidot_blade = states
         else: 
             raise Exception("Wrong number of states set for blade object (ID="+str(self.id) + ")")
 
     def setInputs(self, inputs: list=[0.]):
         """Sets the input variables for the object in order: torque"""
-        if len(inputs) == super().getNumInputs():
+        if len(inputs) == DynamicBlock.getNumInputs(self):
             self.torque = inputs[0]
         else: 
             raise Exception("Wrong number of inputs set for blade object (ID="+str(self.id) + ")")
@@ -138,15 +128,19 @@ class Blade(DynamicBlock):
         """Updates the dynamic values of the object over a single time step."""
         U = self.getInputs()
         X0 = self.getStates()
-        self.setStates(super().step(U=U, X0=X0, dt=dt))
+        self.setStates(DynamicBlock.step(self, U=U, X0=X0, dt=dt))
+        Twin.step(self)
     
     def calcMomentOfInertia(self):
         """Calculates the Moment of Inertia (assuming a disc), in kg*m^2 about the primary axis."""
         return 1/2 * self.weight_blade * self.radius_blade**2 - (1/2 * self.weight_blade * (self.arbor_dia/2)**2)
-    
-    def applyTorque(self, torque: float=0):
-        """Updates the input based on an applied torque about the primary axis."""
-        self.setInputs([torque])
+
+    def getNumEngagedTeeth(self, swept_angle: float):
+        """Returns the number of engaged in the blade, for an engagement over the given angle 
+        (in radians)."""
+        circum_prop = swept_angle / (2 * np.pi)
+        num_teeth = (circum_prop * self.num_teeth) // 1
+        return num_teeth
 
     def plot(self, x=0., y=0.):
         """Returns list of matplotlib patch object of entity."""
@@ -170,16 +164,9 @@ class Blade(DynamicBlock):
         radial_line_path = self.plotRadialLine(x, y)
         self.patches[1].set_path(radial_line_path)
 
-    def getNumEngagedTeeth(self, swept_angle: float):
-        """Returns the number of engaged in the blade, for an engagement over the given angle 
-        (in radians)."""
-        circum_prop = swept_angle / (2 * np.pi)
-        num_teeth = (circum_prop * self.num_teeth) // 1
-        return num_teeth
-
     def __str__(self):
         """Returns a string describing the object."""
-        return "Saw blade (ID=" + str(self.id) + ")"
+        return self.entity.name
 
 class ToothType(Enum):
     """
