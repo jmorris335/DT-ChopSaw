@@ -15,7 +15,8 @@ DWS716 Type 20
 """
 
 def DWS780():
-    blade = Blade(radius=0.1525, tooth_type=ToothType["TCG"], num_teeth=40,
-                  arbor_dia=0.015875)
+    #Blade: Diablo 1296N: https://www.diablotools.com/products/D1296N
+    blade = Blade(id="1296N-1", radius_blade=0.1525, tooth_type=ToothType["TCG"], num_teeth_blade=96,
+                  arbor_dia=0.015875, kerf_blade=.0023, hook=-0.0872664626, thickness=0.0018)
     motor = Motor()
-    saw = Saw(id="DWS780", blade=blade, motor=motor)
+    saw = Saw(id="DWS780-1", blade=blade, motor=motor)

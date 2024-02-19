@@ -16,6 +16,7 @@ from matplotlib.patches import Circle, PathPatch
 from matplotlib.path import Path
 
 from src.auxiliary.support import findDefault
+from db.logger import Logger
 from src.auxiliary.dynamic import DynamicBlock
 
 class Blade(DynamicBlock):
@@ -65,7 +66,9 @@ class Blade(DynamicBlock):
             The angular acceleration of the blade.
     ''' 
     def __init__(self, **kwargs):
-        self.id_blade = findDefault("0", "id_blade", kwargs)
+        self.id = findDefault("0", "id", kwargs)
+        self.name = f'Blade_{self.id}'
+        self.log = Logger(self)
 
         # Physical Constants
         self.age_blade = findDefault(0, "age_blade", kwargs)

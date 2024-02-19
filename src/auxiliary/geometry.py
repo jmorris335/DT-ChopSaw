@@ -425,4 +425,3 @@ def findLineLineIntersections(A, B, C, D):
         y_intx = slope_ab * (x_intx - A[0]) + A[1]
     
     return (x_intx, y_intx)
-

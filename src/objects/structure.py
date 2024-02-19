@@ -11,6 +11,7 @@ import numpy as np
 from matplotlib.patches import Rectangle
 
 from src.auxiliary.support import findDefault
+from db.logger import Logger
 
 class Arm:
     """
@@ -42,6 +43,8 @@ class Arm:
     """
     def __init__(self, **kwargs):
         self.id = findDefault("0", "id", kwargs)
+        self.name = f'Arm_{self.id}'
+        self.log = Logger(self)
 
         # Physical Constants
         self.h0_arm = findDefault(0.04, "h0_arm", kwargs)
@@ -147,6 +150,8 @@ class Table:
     """
     def __init__(self, **kwargs):
         self.id = findDefault("0", "id", kwargs)
+        self.name = f'Arm_{self.id}'
+        self.log = Logger(self)
 
         # Dynamic Values
         self.theta_table = findDefault(0., "theta_table", kwargs)

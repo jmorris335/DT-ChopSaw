@@ -10,6 +10,7 @@
 import numpy as np
 
 from src.auxiliary.support import findDefault
+from db.logger import Logger
 from src.objects.blade import Blade
 from src.objects.motor import Motor
 from src.objects.structure import Arm, Table
@@ -49,20 +50,22 @@ class Saw:
     
     """
 
-    def __init__(self, blade: Blade=Blade(), motor: Motor=Motor(), arm: Arm=Arm(), 
-                 table: Table=Table(), **kwargs):
-        self.blade = blade
-        self.motor = motor
-        self.arm = arm
-        self.table = table
-
+    def __init__(self, blade: Blade=None, motor: Motor=None, arm: Arm=None, 
+                 table: Table=None, **kwargs):
         self.id = findDefault("0", "id", kwargs)
+        self.name = f'Saw_{self.id}'
+        self.log = Logger(self)
+        self.blade = blade if blade is not None else Blade()
+        self.motor = motor if motor is not None else Motor()
+        self.arm = arm if arm is not None else Arm()
+        self.table = table if table is not None else Table()
+
         self.age = findDefault(0, "age", kwargs)
         self.power_on = findDefault(False, "power_on", kwargs)
 
         # GUI operations
-        self.objects = [blade, motor, arm, table]
-        self.patches = blade.patches + arm.patches
+        self.objects = [self.blade, self.motor, self.arm, self.table]
+        self.patches = self.blade.patches + self.arm.patches
         self.updatePatches()
 
     def powerSwitchOn(self, power_on: bool=True):
@@ -73,23 +76,34 @@ class Saw:
         for object in self.objects:
             object.set(**kwargs)
 
+    def updateDynamics(self):
+        self.blade.applyTorque(self.motor.calcTorque())
+
     def step(self):
         if self.power_on: self.motor.applyVoltage(18)
-        # self.blade.applyTorque(self.motor.calcTorque())
+        self.log.addData("blade_position_x", self.bladePosition[0])
+        self.log.addData("blade_position_y", self.bladePosition[1])
+        
+        self.motor.applyLoad(self.blade.torque)
+
         for object in self.objects:
             object.step()
-        self.motor.applyLoad(self.blade.torque)
 
     def updatePatches(self):
         self.arm.updatePatches()
-        self.blade.updatePatches(*self.bladePosition())
+        self.blade.updatePatches(*self.bladePosition)
 
+    @property
     def bladePosition(self):
         """Returns the position of center of the blade in workpiece coordinates where (0,0) indicates 
         the center, lowest point on the cutting path, defined by the saw table. See module notes."""
         x = self.arm.x_arm - self.arm.gap_arm + self.arm.l0_rotating_arm * np.cos(self.arm.theta_arm)
         y = self.arm.h0_arm + self.arm.l0_rotating_arm * np.sin(self.arm.theta_arm) * np.cos(self.arm.phi_arm)
         return x, y
+    
+    def update_dynamics(self):
+        self.motor.applyLoad(self.blade.torque)
+        self.motor.applyLoad()
 
     def __str__(self):
         """Returns a string describing the object."""

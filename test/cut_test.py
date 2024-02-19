@@ -3,7 +3,7 @@ from src.objects.saw import Saw
 from src.objects.blade import Blade
 from src.objects.structure import Arm
 from src.gui.plotter import *
-from src.test.test_aux import *
+from test.test_aux import *
 
 def ct_main():
     cut_test()

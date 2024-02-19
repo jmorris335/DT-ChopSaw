@@ -13,6 +13,7 @@ from matplotlib.patches import PathPatch
 from matplotlib.path import Path
 
 import src.auxiliary.geometry as geo
+from db.logger import Logger
 import src.gui.gui_support as gui
 from src.auxiliary.support import findDefault, findDepth
 
@@ -74,6 +75,10 @@ class Workpiece:
     TODO: Make a function that transforms the profile path for different miter angles
     '''
     def __init__(self, loops:list=None, **kwargs):
+        self.id = findDefault(0, "id", kwargs)
+        self.name = f'Workpiece_{self.id}'
+        self.log = Logger(self)
+        self.name = findDefault("workpiece", "name", kwargs)
         self.E = findDefault(69e9, "E", kwargs)
         self.L = findDefault(1., "L", kwargs)
         self.tol = findDefault(1e-7, "tol", kwargs)

@@ -2,6 +2,7 @@
 dev/
 *scratchpaper.py
 animation_cli.py
+*.config
 
 # VS Code
 .vscode/
