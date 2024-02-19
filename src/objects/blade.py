@@ -90,7 +90,7 @@ class Blade(Twin, DynamicBlock):
         self.omega_blade = findDefault(0, "omega_blade", kwargs)
         self.torque = findDefault(0, "torque", kwargs)
 
-        # Set up state-space model
+        # DynamicBlock inherited methods/attributes overloading
         self.A = [[0, 1, 0, 0],
                   [0,  -self.rotational_friction_blade / self.moi_blade, 0, 0,],
                   [0, 0, 0, 1],

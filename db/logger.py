@@ -9,7 +9,7 @@
 | - 0.0, 15 Feb 2023: Initialized
 """
 
-from time import time
+import time
 from unittest.mock import Mock
 from config import DB_OFF, SUDO
 
@@ -119,7 +119,7 @@ class Logger:
         entities_with_name = db.getEntriesWhere(self.csr, 'Twins', 'name', self.entity.name)
         return entities_with_name[-1][0]
 
-    def addData(self, label: str, val: float):
+    def addData(self, label: str, val: float, time: float=None):
         """Adds a data point to the collection.
         
         Parameters
@@ -129,7 +129,9 @@ class Logger:
         val : Any
             The value of the data being entered into the database.
         """
-        values = [time(), self.entity_id, label, val]
+        if time is None:
+            time = time.time()
+        values = [time, self.entity_id, label, val]
         columns = ['time', 'entity_id', 'label', 'value']
         db.addEntry(self.csr, 'SimData', values, columns)
 
@@ -188,7 +190,7 @@ class Logger:
     
     def log(self, log_entry: str):
         """Adds the message to the log along with the time stamp."""
-        values = [time(), self.entity_id, log_entry]
+        values = [time.time(), self.entity_id, log_entry]
         cols = ['time', 'entity_id', 'log_entry']
         db.addEntry(self.csr, 'Log', values, cols)
 

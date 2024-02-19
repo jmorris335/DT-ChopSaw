@@ -106,7 +106,7 @@ class Twin:
         val : Any
             The value of the data being entered into the database.
         """
-        self.logger.addData(*args)
+        self.logger.addData(time=self.sim_time, *args)
 
     def __str__(self):
         """Returns a string describing the object."""

@@ -13,8 +13,9 @@
 from src.auxiliary.support import findDefault
 from db.logger import Logger
 from src.auxiliary.dynamic import DynamicBlock
+from src.objects.twin import Twin
 
-class Motor(DynamicBlock):
+class Motor(Twin, DynamicBlock):
     """
     A primitive state model for a DC motor.
 
@@ -49,11 +50,10 @@ class Motor(DynamicBlock):
             Voltage applied to the motor, in volts
     """
     def __init__(self, **kwargs):
-        self.id = findDefault("0", "id", kwargs)
-        self.name = f'Motor_{self.id}'
-        self.log = Logger(self)
+        Twin.__init__(self, **kwargs)
 
-        # Physical Constants
+        #Static Values
+        self.name = findDefault("Motor", "name", kwargs)
         self.V_M = findDefault(18., "V_M", kwargs)
         self.K_M = findDefault(0.01, "K_M", kwargs)
         self.J_M = findDefault(0.01, "J_M", kwargs)
@@ -65,25 +65,18 @@ class Motor(DynamicBlock):
         self.theta = findDefault(0., "theta", kwargs)
         self.omega = findDefault(0., "omega", kwargs)
         self.current = findDefault(0., "current", kwargs)
-
-        # Inputs
         self.load = findDefault(0., "load", kwargs)
         self.voltage = findDefault(0., "voltage", kwargs)
 
-        # Set up State Space model
+        # DynamicBlock inherited methods/attributes overloading
         self.A = [[0, 1, 0],
                   [0, -self.B_M / self.J_M, self.K_M / self.J_M],
                   [0, -self.K_M / self.L_M, -self.R_M / self.L_M]]
         self.B = [[0, 0], [-1 / self.J_M, 0], [0, 1 / self.L_M]]
-        super().__init__(A=self.A, B=self.B)
+        DynamicBlock.__init__(self, A=self.A, B=self.B)
 
-    def set(self, **kwargs):
-        """Determines if any passed keyword arguments are attributes of the entity, and 
-        sets them if so."""
-        for key, val in kwargs.items():
-            attr = getattr(self, key, None)
-            if attr is not None:
-                setattr(self, key, val)
+        # Twin inherited methods/attributes overloading
+        self.log = Logger(self)
 
     def getStates(self)-> list:
         """Returns a array of the current values for the dynamic state variables."""
@@ -95,7 +88,7 @@ class Motor(DynamicBlock):
     
     def setStates(self, states: list=[0., 0., 0.]):
         """Sets the state variables for the object in order: theta, omega, phi, phidot."""
-        if len(states) == super().getNumStates():
+        if len(states) == DynamicBlock.getNumStates(self):
             self.theta, self.omega, self.current = states
             self.log.setData('load', states[0])
             self.log.setData('omega', states[1])
@@ -105,7 +98,7 @@ class Motor(DynamicBlock):
 
     def setInputs(self, inputs: list=[0., 0.]):
         """Sets the input variables for the object in order: torque"""
-        if len(inputs) == super().getNumInputs():
+        if len(inputs) == DynamicBlock.getNumInputs(self):
             self.load, self.voltage = inputs
         else: 
             raise Exception("Wrong number of inputs set for blade object (ID="+str(self.id) + ")")
@@ -114,17 +107,9 @@ class Motor(DynamicBlock):
         """Updates the dynamic values of the object over a single time step."""
         U = self.getInputs()
         X0 = self.getStates()
-        self.setStates(super().step(U=U, X0=X0, dt=dt))
-    
-    def applyVoltage(self, voltage: float=0.):
-        self.voltage = voltage
-
-    def applyLoad(self, load: float=0.):
-        self.load = load
+        self.setStates(DynamicBlock.step(self, U=U, X0=X0, dt=dt))
+        Twin.step(self)
 
     def calcTorque(self):
         """Returns the torque based off the current in the motor."""
         return self.K_M * self.current
-
-    def __str__(self):
-        return "DC Motor (ID=" + str(self.id) + ")"

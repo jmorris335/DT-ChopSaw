@@ -69,16 +69,12 @@ class Cut(Twin):
         self.a2 = findDefault(1., "a2", kwargs)
         self.a3 = findDefault(1., "a3", kwargs)
         self.a4 = findDefault(1., "a4", kwargs)
-        temp_K = self.calcPressureCoef(self.a0, self.a1, self.a2, self.a3, self.a4)
-        self.K_fric = findDefault(temp_K, "K_fric", kwargs)
 
         self.b0 = findDefault(0., "b0", kwargs)
         self.b1 = findDefault(1., "b1", kwargs)
         self.b2 = findDefault(1., "b2", kwargs)
         self.b3 = findDefault(1., "b3", kwargs)
         self.b4 = findDefault(1., "b4", kwargs)
-        temp_K = self.calcPressureCoef(self.b0, self.b1, self.b2, self.b3, self.b4)
-        self.K_norm = findDefault(temp_K, "K_norm", kwargs)
 
         # Dynamic Values
         self.all_cut = False

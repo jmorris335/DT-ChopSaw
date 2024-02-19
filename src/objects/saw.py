@@ -94,13 +94,14 @@ class Saw(Twin):
 
     def step(self):
         """Updates all information with the saw based on any given parameters."""
-        if self.powerswitch_on: self.motor.applyVoltage(18)
+        if self.powerswitch_on: 
+            self.motor.voltage = self.supplied_voltage
         self.logData("blade_position_x", self.bladePosition[0])
         self.logData("blade_position_y", self.bladePosition[1])
         
         self.blade.torque += (self.motor.calcTorque())
         super().step()
-        self.motor.applyLoad(self.blade.torque)
+        self.motor.load += self.blade.torque
 
     def updatePatches(self):
         """Overloads function from `Twin` to update blade patch with specific values."""
