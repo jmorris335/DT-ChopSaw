@@ -11,11 +11,12 @@ import numpy as np
 
 from src.auxiliary.support import findDefault
 from db.logger import Logger
+from src.objects.twin import Twin
 from src.objects.blade import Blade
 from src.objects.motor import Motor
 from src.objects.structure import Arm, Table
 
-class Saw:
+class Saw(Twin):
     """
     Aggregate state model of a ChopSaw
     
@@ -32,10 +33,10 @@ class Saw:
     **kwargs : dict, optional
         Optional editing of state variables during initialization. Possible arguments are:
 
-        id : str, default="0"
-            The identification number of the saw.
-        age : int, default=0
-            Age of the saw, in days.
+        name : str, default="Saw"
+            The name of the saw entity.
+        first_use_date : datetime, optional
+            Date that the saw was first used.
         power_on : bool, default=False
             Indicates input has been given to enable power to the saw.
 
@@ -52,44 +53,50 @@ class Saw:
 
     def __init__(self, blade: Blade=None, motor: Motor=None, arm: Arm=None, 
                  table: Table=None, **kwargs):
-        self.id = findDefault("0", "id", kwargs)
-        self.name = f'Saw_{self.id}'
-        self.log = Logger(self)
+        super().__init__(**kwargs)
+        self.name = findDefault("Saw", "name", kwargs)
+        self.first_use_date = findDefault(None, "first_use_date", kwargs)
+        self.powerswitch_on = findDefault(False, "powerswitch_on", kwargs)
         self.blade = blade if blade is not None else Blade()
         self.motor = motor if motor is not None else Motor()
         self.arm = arm if arm is not None else Arm()
         self.table = table if table is not None else Table()
 
-        self.age = findDefault(0, "age", kwargs)
-        self.power_on = findDefault(False, "power_on", kwargs)
-
-        # GUI operations
+        self.logger = Logger(self)
         self.objects = [self.blade, self.motor, self.arm, self.table]
         self.patches = self.blade.patches + self.arm.patches
         self.updatePatches()
 
-    def powerSwitchOn(self, power_on: bool=True):
-        self.power_on = power_on
-
-    def set(self, **kwargs):
-        """Updates parameters in the saw."""
-        for object in self.objects:
-            object.set(**kwargs)
-
-    def updateDynamics(self):
-        self.blade.applyTorque(self.motor.calcTorque())
+    def toggleSwitch(self, power_on: bool=None) -> bool:
+        """Sets the toggle switch for the saw.
+        
+        Parameters
+        ----------
+        power_on : bool, optional
+            Value to set the toggle switch to; True maps to power flowing.
+        
+        Returns
+        -------
+        bool : True if switch is set to closed circuit, False otherwise.
+        """
+        if power_on is None:
+            self.powerswitch_on = not self.powerswitch_on
+        else:
+            self.powerswitch_on = power_on
+        return self.powerswitch_on
 
     def step(self):
-        if self.power_on: self.motor.applyVoltage(18)
-        self.log.addData("blade_position_x", self.bladePosition[0])
-        self.log.addData("blade_position_y", self.bladePosition[1])
+        """Updates all information with the saw based on any given parameters."""
+        if self.powerswitch_on: self.motor.applyVoltage(18)
+        self.logData("blade_position_x", self.bladePosition[0])
+        self.logData("blade_position_y", self.bladePosition[1])
         
+        self.blade.applyTorque(self.motor.calcTorque())
+        super().step()
         self.motor.applyLoad(self.blade.torque)
 
-        for object in self.objects:
-            object.step()
-
     def updatePatches(self):
+        """Overloads function from `Twin` to update blade patch with specific values."""
         self.arm.updatePatches()
         self.blade.updatePatches(*self.bladePosition)
 
@@ -100,10 +107,6 @@ class Saw:
         x = self.arm.x_arm - self.arm.gap_arm + self.arm.l0_rotating_arm * np.cos(self.arm.theta_arm)
         y = self.arm.h0_arm + self.arm.l0_rotating_arm * np.sin(self.arm.theta_arm) * np.cos(self.arm.phi_arm)
         return x, y
-    
-    def update_dynamics(self):
-        self.motor.applyLoad(self.blade.torque)
-        self.motor.applyLoad()
 
     def __str__(self):
         """Returns a string describing the object."""

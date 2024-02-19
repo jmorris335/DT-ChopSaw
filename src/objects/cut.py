@@ -42,8 +42,7 @@ class Cut():
     1. Kapoor, S. G., R. E. DeVor, R. Zhu, R. Gajjela, G. Parakkal, and D. Smithey. “Development of Mechanistic Models for the Prediction of Machining Performance: Model Building Methodology.” Machining Science and Technology 2, no. 2 (December 1, 1998): 213-38. https://doi.org/10.1080/10940349808945669.
     '''
     def __init__(self, saw: Saw=None, wkp: Workpiece=None, **kwargs):
-        self.id = findDefault("0", "id", kwargs)
-        self.name = f'Cut_{self.id}'
+        self.name = findDefault("Cut", "name", kwargs)
         self.log = Logger(self)
         self.all_cut = False
 

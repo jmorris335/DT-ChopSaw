@@ -107,13 +107,10 @@ class Logger:
         db.addColumns(self.csr, name, columns, var_types)
 
     def addEntityToDB(self):
-        """Adds the entity to the twin table if not already added, and adds the entity_id 
-        to the class."""
-        entities = db.getEntries(self.csr, 'Twins', 'name')
-        if self.entity.name in entities:
-            return
-        else:
-            db.addEntry(self.csr, 'Twins', self.entity.name, 'name')
+        """Adds the entity to the twin table and adds the entity_id to the class."""
+        values = [self.entity.name]
+        cols = ['name']
+        db.addEntry(self.csr, 'Twins', values, cols)
         self.entity_id = self.findEntityID()
         
     def findEntityID(self):
