@@ -29,10 +29,10 @@ class Blade(Twin, DynamicBlock):
     **kwargs : dict, optional
         Optional editing of state variables during initialization. Possible arguments are:
 
-        id : str, default="0"
-            The identification number of the blade.
-        age : int, default=0 days
-            The time since the blade was first used.
+        name : str, default="Blade"
+            The identification string for the blade.
+        first_use_date : datetime, optional
+            The date the blade was first used.
         radius : float, default=0.092 meters
             The radius of the blade.
         num_teeth : int, default=56
@@ -68,9 +68,9 @@ class Blade(Twin, DynamicBlock):
     ''' 
     def __init__(self, **kwargs):
         Twin.__init__(self, **kwargs)
+
+        #Primary Components
         self.name = findDefault("Blade", "name", kwargs)
-        self.first_use_date = findDefault(None, "first_use_date", kwargs)
-        self.age_blade = findDefault(0, "age_blade", kwargs)
         self.radius_blade = findDefault(.092, "radius_blade", kwargs)
         self.num_teeth = findDefault(56, "num_teeth", kwargs)
         self.weight_blade = findDefault(.01, "weight_blade", kwargs)
@@ -129,6 +129,7 @@ class Blade(Twin, DynamicBlock):
         U = self.getInputs()
         X0 = self.getStates()
         self.setStates(DynamicBlock.step(self, U=U, X0=X0, dt=dt))
+        self.logData("blade_angular_velocity", self.omega_blade)
         Twin.step(self)
     
     def calcMomentOfInertia(self):

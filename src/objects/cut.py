@@ -14,10 +14,11 @@ import numpy as np
 from src.auxiliary.support import findDefault, loopSlice
 import src.auxiliary.geometry as geo
 from db.logger import Logger
+from src.objects.twin import Twin
 from src.objects.saw import Saw
 from src.objects.workpiece import Workpiece
 
-class Cut():
+class Cut(Twin):
     '''
     Models the act of cutting a workpiece with a saw blade.
 
@@ -28,44 +29,45 @@ class Cut():
     wkp : Workpiece, default=Workpiece()
         The workpiece being cut, constructs a new Workpiece object by default.
     **kwargs : dict, optional
-        Optional editing of state variables during initialization. Possible arguments are:
-
-        h : float; meters
-            Current workpiece height at place of cut.
-        V : float; rad/s
-            Cutting speed (tangential speed of the saw blade)
-        t_chip : float; meters
-            The undeformed chip thickness (average depth of the saw blade cut).
+        Optional editing of state variables during initialization. Optional parameters are:
+        a0 : float, default=0.0
+            Calibration constant for tangential (fricational) loading.
+        a1 : float, default=1.0
+            Calibration constant for tangential (fricational) loading.
+        a2 : float, default=1.0
+            Calibration constant for tangential (fricational) loading.
+        a3 : float, default=1.0
+            Calibration constant for tangential (fricational) loading.
+        a4 : float, default=1.0
+            Calibration constant for tangential (fricational) loading.
+        b0 : float, default=0.0
+            Calibration constant for normal (radial) loading.
+        b1 : float, default=1.0
+            Calibration constant for normal (radial) loading.
+        b2 : float, default=1.0
+            Calibration constant for normal (radial) loading.
+        b3 : float, default=1.0
+            Calibration constant for normal (radial) loading.
+        b4 : float, default=1.0
+            Calibration constant for normal (radial) loading.
 
     References
     ----------
     1. Kapoor, S. G., R. E. DeVor, R. Zhu, R. Gajjela, G. Parakkal, and D. Smithey. “Development of Mechanistic Models for the Prediction of Machining Performance: Model Building Methodology.” Machining Science and Technology 2, no. 2 (December 1, 1998): 213-38. https://doi.org/10.1080/10940349808945669.
     '''
     def __init__(self, saw: Saw=None, wkp: Workpiece=None, **kwargs):
+        Twin.__init__(self, **kwargs)
+        
+        # Primary Attributes
         self.name = findDefault("Cut", "name", kwargs)
-        self.log = Logger(self)
         self.all_cut = False
 
         # Components
         self.saw = saw if saw is not None else Saw()
         self.wkp = wkp if wkp is not None else Workpiece()
 
-        # Physical Values
-        self.alpha_n = findDefault(self.saw.blade.rake, "alpha_n", kwargs)
-        # self.t_c = findDefault(self.saw.blade.kerf, "t_c", kwargs)
-
-        # Dyanmic Values
-        # self.h = findDefault(self.H, "h", kwargs)
-
-        # Inputs
-        self.V = findDefault(self.saw.blade.omega_blade*self.saw.blade.radius_blade, "V", kwargs)
-
-        # Outputs
+        # Dynamic Values
         self.cut_depth = findDefault(0., "chip_depth", kwargs)
-        self.F_radial = findDefault(0., "F_radial", kwargs)
-        self.torque_cut = findDefault(0., "torque_cut", kwargs)
-
-        # Calculated Values
         self.blade_center = self.saw.bladePosition
 
         # Calibration Constants
@@ -74,17 +76,19 @@ class Cut():
         self.a2 = findDefault(1., "a2", kwargs)
         self.a3 = findDefault(1., "a3", kwargs)
         self.a4 = findDefault(1., "a4", kwargs)
+        temp_K = self.calcPressureCoef(self.a0, self.a1, self.a2, self.a3, self.a4)
+        self.K_fric = findDefault(temp_K, "K_fric", kwargs)
+
         self.b0 = findDefault(0., "b0", kwargs)
         self.b1 = findDefault(1., "b1", kwargs)
         self.b2 = findDefault(1., "b2", kwargs)
         self.b3 = findDefault(1., "b3", kwargs)
         self.b4 = findDefault(1., "b4", kwargs)
-        temp_K = self.calcPressureCoef(self.a0, self.a1, self.a2, self.a3, self.a4)
-        self.K_fric = findDefault(temp_K, "K_fric", kwargs)
         temp_K = self.calcPressureCoef(self.b0, self.b1, self.b2, self.b3, self.b4)
         self.K_norm = findDefault(temp_K, "K_norm", kwargs)
 
-        # GUI Operations
+        # Twin inherited methods/attributes overloading
+        self.log = Logger(self)
         self.objects = [self.saw, self.wkp]
         self.patches = self.saw.patches + self.wkp.patches
 
@@ -108,8 +112,8 @@ class Cut():
     def calcPressureCoef(self, c0, c1, c2, c3, c4):
         """Calculates the pressure coefficients for use in Merchant's model using the regression 
         model found in Kapoor et al. (2024)."""
-        self.V = abs(self.V)
-        lnK = c0 + c1*np.log(self.cut_depth) + c2*np.log(self.V) + c3*self.alpha_n + c4*np.log(self.V)*np.log(self.cut_depth)
+        V = abs(self.saw.blade.omega_blade)
+        lnK = c0 + c1*np.log(self.cut_depth) + c2*np.log(V) + c3*self.saw.blade.rake + c4*np.log(V)*np.log(self.cut_depth)
         if np.isnan(lnK):
             return 0
         return np.exp(lnK)
@@ -131,19 +135,13 @@ class Cut():
     
     def __str__(self):
         """Returns a string describing the object."""
-        return "Cut (ID=" + str(self.id) + ")"
-    
-    def updatePatches(self):
-        self.saw.updatePatches()
-        if not self.all_cut:
-            self.wkp.updatePatches()
+        return self.entity.name
 
     def updateDynamics(self):
         """Updates the inputs for each object."""
         cut_torque = self.calcTangentForce() * self.saw.blade.radius_blade
         self.log.addData("cut_torque", cut_torque)
         self.saw.blade.torque += cut_torque
-        self.V = self.saw.blade.omega_blade
 
     def step(self):
         """Finds the intersection between the blade and workpiece, calculating the average
@@ -152,18 +150,17 @@ class Cut():
         if self.all_cut: return
         self.blade_center = self.saw.bladePosition
 
-        if self.checkWkpEnclosedInBlade():
-            self.wkp.loops = list()
-            self.updatePatches()
-            self.all_cut = True
-            return
-        
-        self.performCutOperation()
+        if not self.all_cut:
+            if self.checkWkpEnclosedInBlade():
+                self.wkp.loops = list()
+                self.updatePatches()
+                self.all_cut = True
+                self.cut_depth = 0.0
+            else:
+                self.performCutOperation()
 
         self.updateDynamics()
-
-        for object in self.objects:
-            object.step()
+        Twin.step(self)
 
     def performCutOperation(self):
         """Checks the workpiece and blade circle for intersections and clips the resulting 
