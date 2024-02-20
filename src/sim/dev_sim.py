@@ -46,14 +46,14 @@ def animation_test():
     action_bounds3 = {'x_arm' : [0.3, 0], 
                       'theta_arm' : [np.pi/4, 0], 
                       'torque' : [-.1, -.1]}
-    actions1 = makeLinearPath(action_bounds1, 5)
+    actions1 = makeLinearPath(action_bounds1, 50)
     actions2 = makeLinearPath(action_bounds2, 30)
     actions3 = makeLinearPath(action_bounds3, 30)
     actions = actions1
 
     fig, axs = plt.subplots(nrows=1, ncols=2)
-    animate(cut, actions, rate=.01, block=False)
-    plotData(cut.logger, "time", "cut_depth")
+    animate(cut, actions, rate=.01, block=False, fig=fig, ax=axs[0])
+    plotData(cut.logger, "time", "cut_depth", ax=axs[1])
 
 def resetDB():
     l = Logger(Blade())

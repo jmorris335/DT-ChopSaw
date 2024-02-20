@@ -249,11 +249,23 @@ def arc2PolarFun(seg, center):
     center_arc = calcCircleCenter(*seg)
     [h, k] = center_arc - np.array(center)
     R = calcCircleRadius(seg[0], center_arc)
-    temp1 = lambda theta : h*np.cos(theta) + k*np.sin(theta)
-    temp2 = lambda theta : np.sqrt(temp1(theta)**2 - h**2 - k**2 + R**2)
-    if checkPointInCircle(center, center_arc, R): 
-        return lambda theta : [temp1(theta) + temp2(theta)]
-    return lambda theta : [temp1(theta) + a*temp2(theta) for a in [-1, 1]]
+
+    def getRadialDist(theta: float, h=h, k=k, R=R):
+        if theta % np.pi/2 < eps: #Rotate CW 90deg to map back to domain
+            temp_h = h
+            h = k
+            k = -temp_h
+            theta -= np.pi/2
+        tan = np.tan(theta)
+        a = 1 + tan
+        b = -2 * k * tan - 2 * h
+        c = k**2 + h**2 - R**2
+        x = np.roots([a, b, c])
+        y = [p * tan for p in x]
+        distances = [pointDistance((x[i], y[i]), (0, 0)) for i in range(len(x))]
+        return distances
+    
+    return getRadialDist
 
 def calcBoundingAngles(seg, field_center=[0,0]):
     """Returns the minimum and maximum angular coordinate for the segment in a polar
