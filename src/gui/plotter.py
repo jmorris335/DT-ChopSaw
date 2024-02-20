@@ -9,12 +9,14 @@
 """
 
 import matplotlib.pyplot as plt
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 
 from src.gui.blit_manager import BlitManager
 from src.objects.twin import Twin
 from src.db.logger import Logger
 
-def plotStatic(entities: list):
+def plotStatic(entities: list, block: bool=True):
     """Plots the entity without simulating the entity. Similar to calling
     `animate(entity, actions=[])`, but can take a list of entities rather than an aggregate
     model."""
@@ -30,9 +32,9 @@ def plotStatic(entities: list):
     ax.legend(loc="lower center", ncols=2)
     ax.axis('equal')
 
-    plt.show(block=True)
+    plt.show(block=block)
 
-def animate(entity: Twin, actions: list, rate: float=1/30):
+def animate(entity: Twin, actions: list, rate: float=1/30, fig: Figure=None, ax :Axes=None, block: bool=True):
     """
     Simulates the entity and outputs the system to an animated matplotlib plot where each 
     step is defined by a successive entry in the list actions.
@@ -84,7 +86,7 @@ def animate(entity: Twin, actions: list, rate: float=1/30):
     entity.updatePatches()
     patches = entity.patches
 
-    fig, ax = initializePlot()
+    fig, ax = configurePlot(fig, ax)
     for patch in patches:
         ax.add_patch(patch)
     ax.legend(loc="lower center", ncols=2)
@@ -101,15 +103,28 @@ def animate(entity: Twin, actions: list, rate: float=1/30):
         bm.update()
         plt.pause(rate)
 
-    plt.show(block=True)
+    plt.show(block=block)
 
-def initializePlot():
-    fig, ax = plt.subplots()
+def configurePlot(fig: Figure=None, ax: Axes=None):
+    if fig is None or ax is None:
+        fig, ax = plt.subplots()
     ax.set_aspect('equal', adjustable='box')
     ax.set_xlim(-.3, .3)
     ax.set_ylim(-.2, .3)
     # plt.axis('off')
     fig.suptitle("Workpiece and Sawblade")
+    return fig, ax
+
+def configurePlots(fig: Figure=None, axs: list=None):
+    if fig is None or ax is None:
+        fig, ax = plt.subplots(ncols=2)
+    fig, axs[0] = configurePlot(fig, ax[0])
+    axs[1].set_aspect('equal', adjustable='box')
+    return fig, axs
+
+def configureGraph(fig: Figure=None, ax: Axes=None):
+    if fig is None or ax is None:
+        fig, ax = plt.subplots()
     return fig, ax
 
 def makeLinearPath(action_bounds: dict, num_steps: int=100):
@@ -142,3 +157,21 @@ def makeLinearPath(action_bounds: dict, num_steps: int=100):
             action[key] = val[0] + (val[1] - val[0]) / (num_steps-1) * i
         actions.append(action)
     return actions
+
+def plotData(logger: Logger, x_name: str, y_name: str, ax: Axes=None):
+    """Retrieves the data from the DB with the provided logger and plots it to the
+    passed Axes object."""
+    if ax is None:
+        fig, ax = configureGraph(ax= ax)
+    if x_name is 'time':
+        rows = logger.getAllRows(label=y_name)
+        x = [row[logger.col_idx('time')] for row in rows]
+        y = [row[logger.col_idx('value')] for row in rows]
+    else:
+        x = logger.getAllValues(x_name)
+        y = logger.getAllValues(y_name)
+    
+    ax.plot(x, y, lw=2, color='k')
+    ax.set_xlabel(x_name)
+    ax.set_ylabel(y_name)
+    plt.show()

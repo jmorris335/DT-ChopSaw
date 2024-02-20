@@ -14,6 +14,7 @@ from unittest.mock import Mock
 from config import DB_OFF, SUDO
 
 import src.db.db_ops as db
+from src.db.db_names import *
 
 class Logger:
     """General object for gathering, storing, and distributing variables for a digital twin
@@ -71,19 +72,17 @@ class Logger:
 
     def setupTwinTable(self):
         """Createds the twin table in the database if it does not already exist."""
-        self.addTable('Twins', 'name', 'VARCHAR(50)')
+        self.addTable(twin_tbl_name, twin_tbl_cols, twin_tbl_vartypes)
 
     def setupDataTable(self):
         """Creates the data table in the database if it does not already exist."""
-        cols = ['time', 'entity_id', 'label', 'value']
-        var_types = ['DOUBLE', 'INT', 'VARCHAR(50)', 'DOUBLE']
-        self.addTable('SimData', cols, var_types)
+        self.addTable(simdata_tbl_name, simdata_tbl_cols, simdata_tbl_vartypes)
 
     def setupLogTable(self):
         """Creates the log table in the database if it does not already exist."""
         cols = ['time', 'entity_id', 'value']
         var_types = ['DOUBLE', 'INT', 'DOUBLE']
-        self.addTable('Log', cols, var_types)
+        self.addTable(log_tbl_name, log_tbl_cols, log_tbl_vartypes)
 
     def addTable(self, name: str, columns: list, var_types: list):
         """Adds a table to the database.
@@ -110,16 +109,16 @@ class Logger:
         """Adds the entity to the twin table and adds the entity_id to the class."""
         values = [self.entity.name]
         cols = ['name']
-        db.addEntry(self.csr, 'Twins', values, cols)
+        db.addEntry(self.csr, twin_tbl_name, values, cols)
         self.entity_id = self.findEntityID()
         
     def findEntityID(self):
         """Returns the ID for the most recently added entity with the name associated with the
         `Logger`."""
-        entities_with_name = db.getEntriesWhere(self.csr, 'Twins', 'name', self.entity.name)
+        entities_with_name = db.getEntriesWhere(self.csr, twin_tbl_name, 'name', self.entity.name)
         return entities_with_name[-1][0]
 
-    def addData(self, label: str, val: float, time_val: float=None):
+    def addSimData(self, label: str, val: float, time_val: float=None):
         """Adds a data point to the collection.
         
         Parameters
@@ -133,7 +132,7 @@ class Logger:
             time_val = time.time()
         values = [time_val, self.entity_id, label, val]
         columns = ['time', 'entity_id', 'label', 'value']
-        db.addEntry(self.csr, 'SimData', values, columns)
+        db.addEntry(self.csr, simdata_tbl_name, values, columns)
 
     def setData(self, name, val):
         """Adds the data point and sets the value in the entity.
@@ -151,7 +150,14 @@ class Logger:
             If the name is not an attribute of the entity.
         """
         setattr(self.entity, name, val)
-        self.addData(name, val)
+        self.addSimData(name, val)
+
+    def col_idx(self, column: str):
+        """Returns the index of the column based on the column list
+        
+        Adds one to account for primary key (not listed in db_names)
+        """
+        return simdata_tbl_cols.index(column) + 1
         
     def getLatestValue(self, label: str):
         """Returns the most recently added value from the `SimData` table for the entry
@@ -159,7 +165,7 @@ class Logger:
         
         Assumes the following column order: [~, time, entity_id, label, value] for the returned 
         entries."""
-        entries = db.getEntries(self.csr, 'SimData')
+        entries = db.getEntries(self.csr, simdata_tbl_name)
         sorted(entries, key=lambda e: e[1]).reverse()
         i = [e[3] for e in entries].index(label)
         return entries[i][4]
@@ -179,20 +185,27 @@ class Logger:
     def getAllValues(self, label: str=None) -> list:
         """Returns all data points from the `SimData` table corresponding to the associated
         entity and label (if passed)."""
-        entries = db.getEntries(self.csr, 'SimData')
+        return self.getAllRows(label, 'value')
+    
+    def getAllRows(self, label: str=None, column: str=None) -> list:
+        """Returns all rows in the SimData table. Filtered by label and column if provided."""
+        entries = db.getEntries(self.csr, simdata_tbl_name)
         def fun(entry):
-            if not entry[2] == self.entity_id: return False
+            if not entry[self.col_idx('entity_id')] == self.entity_id: return False
             if label is not None:
-                if not entry[3] == label: return False
+                if not entry[self.col_idx('label')] == label: return False
             return True
         entries = filter(fun, entries)
-        return entries
+        if column is not None:
+            return [e[self.col_idx(column)] for e in entries]
+        else:
+            return list(entries)
     
     def log(self, log_entry: str):
         """Adds the message to the log along with the time stamp."""
         values = [time.time(), self.entity_id, log_entry]
         cols = ['time', 'entity_id', 'log_entry']
-        db.addEntry(self.csr, 'Log', values, cols)
+        db.addEntry(self.csr, log_tbl_name, values, cols)
 
     def resetTables(self):
         """Clears the tables associated with the logger and resets the database so that entries
@@ -201,17 +214,17 @@ class Logger:
         Note that the function can only be called if global configuration SUDO is set to True.
         """
         if not SUDO: return
-        db.removeFromTable(self.csr, 'Twins', 'entity_id', self.entity_id)
-        db.removeFromTable(self.csr, 'Log', 'entity_id', self.entity_id)
-        db.removeFromTable(self.csr, 'SimData', 'entity_id', self.entity_id)
+        db.removeFromTable(self.csr, twin_tbl_name, 'entity_id', self.entity_id)
+        db.removeFromTable(self.csr, log_tbl_name, 'entity_id', self.entity_id)
+        db.removeFromTable(self.csr, simdata_tbl_name, 'entity_id', self.entity_id)
 
     def resetDB(self):
         """Removes all tables from the database affiliated with the Logger. SUDO must be true.
         """
         if not SUDO: return
-        db.dropTable(self.csr, 'Twins')
-        db.dropTable(self.csr, 'Log')
-        db.dropTable(self.csr, 'SimData')
+        db.dropTable(self.csr, twin_tbl_name)
+        db.dropTable(self.csr, log_tbl_name)
+        db.dropTable(self.csr, simdata_tbl_name)
 
 if DB_OFF:
     Logger = Mock(Logger)

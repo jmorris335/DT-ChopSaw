@@ -245,13 +245,13 @@ def line2PolarFun(seg, center):
 
 def arc2PolarFun(seg, center):
     """Returns a lambda function that takes in an angle, theta, and returns a list of radial 
-    distances from the point, center (array_like, length 2) for the segment."""
+    distances from the point, center (array_like, length 2), for the segment."""
     center_arc = calcCircleCenter(*seg)
     [h, k] = center_arc - np.array(center)
     R = calcCircleRadius(seg[0], center_arc)
     temp1 = lambda theta : h*np.cos(theta) + k*np.sin(theta)
     temp2 = lambda theta : np.sqrt(temp1(theta)**2 - h**2 - k**2 + R**2)
-    if checkPointInCircle(center_arc, center, R): 
+    if checkPointInCircle(center, center_arc, R): 
         return lambda theta : [temp1(theta) + temp2(theta)]
     return lambda theta : [temp1(theta) + a*temp2(theta) for a in [-1, 1]]
 

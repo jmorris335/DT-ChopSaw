@@ -106,7 +106,7 @@ class Twin:
         val : Any
             The value of the data being entered into the database.
         """
-        self.logger.addData(time_val=self.sim_time, *args)
+        self.logger.addSimData(time_val=self.sim_time, *args)
 
     def setData(self, name, val) -> None:
         """Adds the data point and sets the value in the entity.

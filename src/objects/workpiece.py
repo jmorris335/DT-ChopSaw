@@ -15,9 +15,10 @@ from matplotlib.path import Path
 import src.auxiliary.geometry as geo
 from src.db.logger import Logger
 import src.gui.gui_support as gui
+from src.objects.twin import Twin
 from src.auxiliary.support import findDefault, findDepth
 
-class Workpiece:
+class Workpiece(Twin):
     '''
     A workpiece that operations can be performed on. For now assumed to have a constant profile.
 
@@ -75,17 +76,20 @@ class Workpiece:
     TODO: Make a function that transforms the profile path for different miter angles
     '''
     def __init__(self, loops:list=None, **kwargs):
-        self.id = findDefault(0, "id", kwargs)
-        self.name = f'Workpiece_{self.id}'
-        self.log = Logger(self)
+        Twin.__init__(self)
+
+        #Static Values
         self.name = findDefault("workpiece", "name", kwargs)
         self.E = findDefault(69e9, "E", kwargs)
         self.L = findDefault(1., "L", kwargs)
         self.tol = findDefault(1e-7, "tol", kwargs)
-        self.loops = self.cleanLoops(loops if loops is not None else defaultPath())
-        self.loops = self.shiftPositive(self.loops)
 
-        # GUI operations
+        # Dynamic Values
+        temp_loops = self.cleanLoops(loops if loops is not None else defaultPath())
+        self.loops = self.shiftPositive(temp_loops)
+
+        # Twin inherited methods/attributes overloading
+        self.log = Logger(self)
         self.patches = self.plot()
 
     def cleanLoops(self, segs: list=None) -> list:
@@ -143,17 +147,6 @@ class Workpiece:
             if len(loop) < 2: 
                 del(loops[i])
         return loops
-        
-    def set(self, **kwargs):
-        """Determines if any passed keyword arguments are attributes of the entity, and 
-        sets them if so."""
-        for key, val in kwargs.items():
-            attr = getattr(self, key, None)
-            if attr is not None:
-                setattr(self, key, val)
-
-    def step(self, **kwargs):
-        pass
     
     def shiftPositive(self, loops: None) -> list:
         """Shifts the points so that all points are in the First Quadrant (positive) and, 

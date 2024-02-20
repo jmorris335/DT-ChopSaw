@@ -161,6 +161,8 @@ class Cut(Twin):
             self.wkp.loops[i] = self.restructurePath(intx_pts, seg_indices, loop)
         if len(chip_depths) > 0:
             self.setData("cut_depth", np.mean(chip_depths))
+        else:
+            self.setData("cut_depth", 0.0)
         self.wkp.loops = self.wkp.cleanLoops()
         self.updatePatches()
 
@@ -313,10 +315,10 @@ class Cut(Twin):
         h = list()
         profile = sorted(profile, key=lambda l : l[1])
         theta_min = profile[0][1]
-        theta_max = max([a[2] for a in profile])
+        theta_max = max([p[2] for p in profile])
         for theta in np.linspace(theta_min, theta_max, n): #Check if theta is in range
-            domain = [p for p in profile if p[2] > theta and p[2] < theta]
-            h.append(self.findRadialHeightAtTheta(domain, theta))
+            profs_at_theta = [p for p in profile if p[1] < theta and p[2] > theta]
+            h.append(self.findRadialHeightAtTheta(profs_at_theta, theta))
         return np.mean(h)
 
     def findRadialHeightAtTheta(self, profile, theta) -> float:
