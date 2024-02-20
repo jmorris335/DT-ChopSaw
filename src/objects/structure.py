@@ -12,7 +12,7 @@ from matplotlib.patches import Rectangle
 
 from src.auxiliary.support import findDefault
 from src.objects.twin import Twin
-from db.logger import Logger
+from src.db.logger import Logger
 
 class Arm(Twin):
     """

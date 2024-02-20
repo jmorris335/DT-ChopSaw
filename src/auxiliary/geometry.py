@@ -238,6 +238,8 @@ def line2PolarFun(seg, center):
     """Returns a lambda function that takes in an angle, theta, and returns a list of radial 
     distances from the point, center (array_like, length 2) for the segment."""
     [x1, y1], [x2, y2] = [[seg[i][0] - center[0], seg[i][1] - center[1]] for i in range(2)]
+    if abs(x2 - x1) < eps:
+        return lambda theta : [x1 / np.cos(theta)]
     m = (y2 - y1) / (x2 - x1) #slope
     return lambda theta : [(y1 - m * x1) / (np.sin(theta) - m * np.cos(theta))]
 
@@ -313,8 +315,15 @@ def calcCircleSpanningAngles(polar_pt, radius):
     
     Source: https://math.stackexchange.com/a/4525769"""
     r0, phi = polar_pt
-    if abs(r0) < eps: return [None, None]
-    return [phi + a * np.arcsin(radius/r0) for a in [-1, 1]]
+    if abs(r0) < eps or np.isinf(radius): 
+        return [None, None]
+
+    try:
+        out = [phi + a * np.arcsin(radius/r0) for a in [-1, 1]]
+    except RuntimeWarning:
+        return [None, None]
+    return out
+
     
 def polar2xy(r, theta):
     """Converts the polar point (r, theta) to the point (x, y) in rectilinear coordinates."""

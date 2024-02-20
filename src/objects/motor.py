@@ -11,7 +11,7 @@
 """
 
 from src.auxiliary.support import findDefault
-from db.logger import Logger
+from src.db.logger import Logger
 from src.auxiliary.dynamic import DynamicBlock
 from src.objects.twin import Twin
 

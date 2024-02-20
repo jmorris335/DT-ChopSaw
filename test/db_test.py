@@ -1,6 +1,6 @@
 import unittest
 
-from db.db_ops import *
+from src.db.db_ops import *
 
 class DBTest(unittest.TestCase):
     @classmethod

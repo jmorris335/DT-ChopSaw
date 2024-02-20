@@ -13,7 +13,7 @@ import numpy as np
 
 from src.auxiliary.support import findDefault, loopSlice
 import src.auxiliary.geometry as geo
-from db.logger import Logger
+from src.db.logger import Logger
 from src.objects.twin import Twin
 from src.objects.saw import Saw
 from src.objects.workpiece import Workpiece
@@ -117,9 +117,12 @@ class Cut(Twin):
         """Calculates the pressure coefficients for use in Merchant's model using the regression 
         model found in Kapoor et al. (2024)."""
         V = abs(self.saw.blade.omega_blade)
-        lnK = c0 + c1*np.log(self.cut_depth) + c2*np.log(V) + c3*self.saw.blade.rake + c4*np.log(V)*np.log(self.cut_depth)
+        try:
+            lnK = c0 + c1*np.log(self.cut_depth) + c2*np.log(V) + c3*self.saw.blade.rake + c4*np.log(V)*np.log(self.cut_depth)
+        except:
+            return 0.0
         if np.isnan(lnK):
-            return 0
+            return 0.0
         return np.exp(lnK)
     
     def calcCutArea(self):

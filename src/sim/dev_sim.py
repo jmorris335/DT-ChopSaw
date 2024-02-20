@@ -4,7 +4,7 @@ from src.objects.blade import Blade
 from src.objects.structure import Arm
 from src.gui.plotter import *
 from test.test_aux import *
-from db.logger import Logger
+from src.db.logger import Logger
 
 def dev_sim_main():
     resetDB()

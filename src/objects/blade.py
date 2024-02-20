@@ -16,7 +16,7 @@ from matplotlib.patches import Circle, PathPatch
 from matplotlib.path import Path
 
 from src.auxiliary.support import findDefault
-from db.logger import Logger
+from src.db.logger import Logger
 from src.objects.twin import Twin
 from src.auxiliary.dynamic import DynamicBlock
 

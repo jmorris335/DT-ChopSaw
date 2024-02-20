@@ -13,7 +13,7 @@ import time
 from unittest.mock import Mock
 from config import DB_OFF, SUDO
 
-import db.db_ops as db
+import src.db.db_ops as db
 
 class Logger:
     """General object for gathering, storing, and distributing variables for a digital twin

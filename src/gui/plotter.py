@@ -11,6 +11,8 @@
 import matplotlib.pyplot as plt
 
 from src.gui.blit_manager import BlitManager
+from src.objects.twin import Twin
+from src.db.logger import Logger
 
 def plotStatic(entities: list):
     """Plots the entity without simulating the entity. Similar to calling
@@ -30,14 +32,14 @@ def plotStatic(entities: list):
 
     plt.show(block=True)
 
-def animate(entity, actions: list, rate: float=1/30):
+def animate(entity: Twin, actions: list, rate: float=1/30):
     """
-    Produces an animated matplotlib plot where each step is defined by a successive entry
-    in the list actions.
+    Simulates the entity and outputs the system to an animated matplotlib plot where each 
+    step is defined by a successive entry in the list actions.
 
     Parameters
     ----------
-    entity : Any
+    entity : Twin
         The entity to animate, can be any digital twin object with a `patch` member and functions
         of `set(kwargs)`, `step()`, and `updatePatches()`
     actions : list[dict]
@@ -91,20 +93,15 @@ def animate(entity, actions: list, rate: float=1/30):
     plt.show(block=False)
     plt.pause(rate)
 
-    data = list()
     for action in actions:
         entity.set(**action)
         entity.step()
         entity.updatePatches()
-        if hasattr(entity, 'getData'):
-            data.append([actions.index(action) / len(actions) * 10, entity.getData()[0]])
         
         bm.update()
         plt.pause(rate)
 
     plt.show(block=True)
-    # if hasattr(entity, 'getData'):
-    #     plotPath([d[0] for d in data], [d[1] for d in data])
 
 def initializePlot():
     fig, ax = plt.subplots()
@@ -145,11 +142,3 @@ def makeLinearPath(action_bounds: dict, num_steps: int=100):
             action[key] = val[0] + (val[1] - val[0]) / (num_steps-1) * i
         actions.append(action)
     return actions
-
-def plotPath(x, y):
-    fig, ax = plt.subplots()
-    ax.plot(x, y, lw=2)
-    ax.set_title('Torque Load')
-    ax.set_xlabel('Time (s)')
-    ax.set_ylabel('Torque (N*m)')
-    plt.show()

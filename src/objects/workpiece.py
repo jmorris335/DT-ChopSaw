@@ -13,7 +13,7 @@ from matplotlib.patches import PathPatch
 from matplotlib.path import Path
 
 import src.auxiliary.geometry as geo
-from db.logger import Logger
+from src.db.logger import Logger
 import src.gui.gui_support as gui
 from src.auxiliary.support import findDefault, findDepth
 

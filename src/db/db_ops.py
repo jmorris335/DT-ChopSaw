@@ -20,7 +20,7 @@ def connectToDB(db_name: str=None, DEV_OPS: bool=True) -> Connection:
     Note that autocommit is turned on by default.
     """
     options = {
-        'option_files': './db/mysql/sql.config',
+        'option_files': './src/db/mysql/sql.config',
         'option_groups': 'dev' if DEV_OPS else 'client'
     }
     if db_name is not None:
