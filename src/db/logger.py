@@ -23,7 +23,7 @@ class Logger:
 
     Parameters
     ----------
-    entity : Any
+    entity : Twin, optional
         The digital twin instance attached to the `Logger`.
 
     Attributes
@@ -32,10 +32,6 @@ class Logger:
         Connection to the database.
     csr : CMySQLCursor
         Cursor object for interacting with the database
-    db_opts : list
-        A list containing `csr` and `table_name`, used for convenience as *self.db_opts
-    logs : list
-    
     
     Notes
     -----
@@ -52,14 +48,15 @@ class Logger:
         for inherited digital twin instances. Instead, the `Logger` instance for each managed 
         digital twin should store the information for the child twins.
     """
-    def __init__(self, entity):
+    def __init__(self, entity=None):
         self.cnx = db.connectToDB()
         self.cnx.autocommit = True
         self.csr = self.cnx.cursor()
 
         self.setupDB()
-        self.entity = entity
-        self.addEntityToDB()
+        if entity is not None:
+            self.entity = entity
+            self.addEntityToDB()
 
     def __del__(self):
         self.cnx.close()
@@ -153,33 +150,39 @@ class Logger:
         self.addSimData(name, val)
 
     def col_idx(self, column: str):
-        """Returns the index of the column based on the column list
+        """Returns the index of the column in the simdata table based on the column 
+        list.
         
         Adds one to account for primary key (not listed in db_names)
         """
         return simdata_tbl_cols.index(column) + 1
+    
+    def getLatestEntry(self, label: str):
+        """Returns the most recently added entry from the `SimData` table for the entry
+        with the given label.
+        """
+        entries = self.getAllRows(label)
+        entries = sorted(entries, key=lambda e: e[self.col_idx('time')], reverse=True)
+        return entries[0]
         
     def getLatestValue(self, label: str):
         """Returns the most recently added value from the `SimData` table for the entry
         with the given label.
-        
-        Assumes the following column order: [~, time, entity_id, label, value] for the returned 
-        entries."""
-        entries = db.getEntries(self.csr, simdata_tbl_name)
-        sorted(entries, key=lambda e: e[1]).reverse()
-        i = [e[3] for e in entries].index(label)
-        return entries[i][4]
+        """
+        entry = self.getLatestEntry(label)
+        return entry[self.col_idx('value')]
     
     def getLatestValues(self) -> dict:
         """Returns all the most recently added values and their names from the `SimData`
         table where the entity is consistent with the `Logger`.
         """
         entries = self.getAllValues()
-        sorted(entries, key=lambda e: e[1]).reverse()
+        sorted(entries, key=lambda e: e[self.col_idx('time')])
         out = dict()
         for e in entries:
-            if e[3] not in dict:
-                out[e[3]] = e[4]
+            label = e[self.col_idx('label')] 
+            if label not in dict:
+                out[label] = e[self.col_idx('value')]
         return out
     
     def getAllValues(self, label: str=None) -> list:
@@ -191,7 +194,6 @@ class Logger:
         """Returns all rows in the SimData table. Filtered by label and column if provided."""
         entries = db.getEntries(self.csr, simdata_tbl_name)
         def fun(entry):
-            if not entry[self.col_idx('entity_id')] == self.entity_id: return False
             if label is not None:
                 if not entry[self.col_idx('label')] == label: return False
             return True

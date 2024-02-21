@@ -23,7 +23,8 @@ def loopSlice(l, i, j):
     print(out) #returns [5, 1, 2, 3]
     ```
     """
-    if i <= j: return l[i:j]
+    if i < j: return l[i:j]
+    if i == j: return l[:]
     return l[i:] + l[:j]
 
 def findDepth(l, level=0) -> int:

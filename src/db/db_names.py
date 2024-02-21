@@ -32,8 +32,8 @@ simdata_tbl_vartypes = ['DOUBLE', 'INT', 'VARCHAR(50)', 'DOUBLE']
     Table of all log messages.
 """
 log_tbl_name = 'Log'
-log_tbl_cols = ['time', 'entity_id', 'value']
-log_tbl_vartypes = ['DOUBLE', 'INT', 'DOUBLE']
+log_tbl_cols = ['time', 'entity_id', 'log_entry']
+log_tbl_vartypes = ['DOUBLE', 'INT', 'TEXT']
 ############################################
 
 

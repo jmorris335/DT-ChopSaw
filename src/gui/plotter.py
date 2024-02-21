@@ -34,6 +34,87 @@ def plotStatic(entities: list, block: bool=True):
 
     plt.show(block=block)
 
+def animateWithData(entity: Twin, actions: list, logger: Logger, y_names: list, rate: float=1/30):
+    """
+    Animates the entity alongside an evolving data_chart versus time.
+    """
+    entity.updatePatches()
+    artists = entity.patches
+
+    plt.rcParams["font.family"] = "Helvetica"
+    fig, axs = plt.subplots(1, ncols=2, figsize=(10, 5))
+    plt.gcf().text(0.75, 0.0, "© 2024 PLM Center at Clemson University", fontsize=8, color='#A4A4A4')
+    fig.patch.set_facecolor('#F3F3F3')
+    fig, axs[0] = configurePlot(fig, axs[0])
+
+    dt = 0.01 if logger is None else logger.entity.time_step
+    axs[1].set_box_aspect(1)
+    axs[1].set_xlim(0, dt*len(actions))
+    axs[1].set_xlabel('Time (s)')
+    axs[1].set_ylabel("Values")
+    axs[1].set_title("Simulated Data")
+    axs[1].grid()
+
+    # Setup DT
+    for artist in artists:
+        axs[0].add_patch(artist)
+    box = axs[0].get_position()
+    axs[0].set_position([box.x0, box.y0 + box.height * 0.1, box.width, box.height * 0.9])
+    axs[0].legend(loc='upper center', bbox_to_anchor=(0.5, -0.05),
+          fancybox=True, ncol=2)
+
+    # Setup data plot
+    t = list()
+    y = list()
+    lines = list()
+    def formatLabel(s: str):
+        s = s.replace('_', ' ')
+        s = s.capitalize()
+        return s
+    for i in range(len(y_names)):
+        t.append([])
+        y.append([])
+        line, = axs[1].plot(t[i], y[i], lw=2, animated=True, label=formatLabel(y_names[i]))
+        lines.append(line)
+    artists.extend(lines)
+    box = axs[1].get_position()
+    axs[1].set_position([box.x0, box.y0 + box.height * 0.1, box.width, box.height * 0.9])
+    axs[1].legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), fancybox=True, ncol=2)
+
+    bm = BlitManager(fig.canvas, artists)
+    plt.show(block=False)
+    plt.pause(rate)
+
+    for action in actions:
+        entity.set(**action)
+        entity.step()
+        entity.updatePatches()
+
+        for i in range(len(y_names)):
+            data = logger.getLatestEntry(y_names[i])
+            y[i].append(data[logger.col_idx('value')])
+            t[i].append(data[logger.col_idx('time')])
+            lines[i].set_ydata(y[i])
+            lines[i].set_xdata(t[i])
+            y_lim = axs[1].get_ylim()
+            if y[i][-1] < y_lim[0]:
+                max_y = max(max(a) for a in y if len(a) > 0)
+                min_y = min(min(a) for a in y if len(a) > 0)
+                buffer = abs(max_y - min_y) * 0.1
+                axs[1].set_ylim(min_y - buffer, y_lim[1])
+                plt.show(block=False)
+            elif y[i][-1] > y_lim[1]:
+                max_y = max(max(a) for a in y if len(a) > 0)
+                min_y = min(min(a) for a in y if len(a) > 0)
+                buffer = abs(max_y - min_y) * 0.1
+                axs[1].set_ylim(y_lim[0], max_y + buffer)
+                plt.show(block=False)
+        bm.update()
+        plt.pause(rate)
+
+    plt.show(block=True)
+
+
 def animate(entity: Twin, actions: list, rate: float=1/30, fig: Figure=None, ax :Axes=None, block: bool=True):
     """
     Simulates the entity and outputs the system to an animated matplotlib plot where each 
@@ -109,17 +190,19 @@ def configurePlot(fig: Figure=None, ax: Axes=None):
     if fig is None or ax is None:
         fig, ax = plt.subplots()
     ax.set_aspect('equal', adjustable='box')
+    ax.set_box_aspect(1)
     ax.set_xlim(-.3, .3)
     ax.set_ylim(-.2, .3)
-    # plt.axis('off')
+    ax.set_xticks([])
+    ax.set_yticks([])
     fig.suptitle("Workpiece and Sawblade")
+    ax.set_title("Simulation")
     return fig, ax
 
 def configurePlots(fig: Figure=None, axs: list=None):
-    if fig is None or ax is None:
-        fig, ax = plt.subplots(ncols=2)
-    fig, axs[0] = configurePlot(fig, ax[0])
-    axs[1].set_aspect('equal', adjustable='box')
+    if fig is None or axs is None:
+        fig, axs = plt.subplots(ncols=2)
+    fig, axs[0] = configurePlot(fig, axs[0])
     return fig, axs
 
 def configureGraph(fig: Figure=None, ax: Axes=None):
@@ -163,7 +246,7 @@ def plotData(logger: Logger, x_name: str, y_name: str, ax: Axes=None):
     passed Axes object."""
     if ax is None:
         fig, ax = configureGraph(ax= ax)
-    if x_name is 'time':
+    if x_name == 'time':
         rows = logger.getAllRows(label=y_name)
         x = [row[logger.col_idx('time')] for row in rows]
         y = [row[logger.col_idx('value')] for row in rows]

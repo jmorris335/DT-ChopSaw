@@ -172,7 +172,7 @@ class Cut(Twin):
         for loop in self.wkp.loops:
             if not self.checkLoopEnclosedInBlade(loop):
                 return False
-        self.log.log("Workpiece enclosed in blade.")
+        self.logMessage("Workpiece enclosed in blade.")
         return True
     
     def checkLoopEnclosedInBlade(self, loop) -> bool:

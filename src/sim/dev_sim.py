@@ -30,8 +30,8 @@ def cut_test():
     plotStatic([cut])
 
 def animation_test():
-    # wkp = makeSquareWkp(.15)
-    wkp = makeGFSstrut(.25)
+    # wkp = makeSquareWkp(.1)
+    wkp = makeGFSstrut(.1)
     # wkp = makeTwoWkp(.05)
     # wkp = makeNegativeSquareWkp(.15)
     saw = Saw()
@@ -40,20 +40,20 @@ def animation_test():
     action_bounds1 = {'x_arm' : [0.0, .15], 
                       'theta_arm' : [np.pi/2, 0],
                       'torque' : [-.1, -.1]}
-    action_bounds2 = {'x_arm' : [0.15, .15],
+    action_bounds2 = {'x_arm' : [0.15, 0],
                       'theta_arm' : [0, 0], 
                       'torque' : [-.1, -.1]}
     action_bounds3 = {'x_arm' : [0.3, 0], 
                       'theta_arm' : [np.pi/4, 0], 
                       'torque' : [-.1, -.1]}
     actions1 = makeLinearPath(action_bounds1, 50)
-    actions2 = makeLinearPath(action_bounds2, 30)
+    actions2 = makeLinearPath(action_bounds2, 50)
     actions3 = makeLinearPath(action_bounds3, 30)
-    actions = actions1
+    actions = actions1 + actions2
 
-    fig, axs = plt.subplots(nrows=1, ncols=2)
-    animate(cut, actions, rate=.01, block=False, fig=fig, ax=axs[0])
-    plotData(cut.logger, "time", "cut_depth", ax=axs[1])
+    # fig, axs = plt.subplots(nrows=1, ncols=2)
+    # animate(cut, actions, rate=.01, block=False, fig=fig, ax=axs[0])
+    animateWithData(cut, actions, rate=0.01, logger=cut.logger, y_names=[ "cut_depth", "load"])
 
 def resetDB():
     l = Logger(Blade())
