@@ -146,7 +146,7 @@ class Blade(Twin, DynamicBlock):
     def plot(self, x=0., y=0.):
         """Returns list of matplotlib patch object of entity."""
         blade_patch = Circle((x, y), self.radius_blade)
-        blade_patch.set(fc="orange", lw=1, ec="black", label="Saw Blade")
+        blade_patch.set(fc="red", lw=1, ec="black", label="Saw Blade")
         radial_line = PathPatch(self.plotRadialLine(x, y), lw=2, ec='k')
         return [blade_patch, radial_line]
     

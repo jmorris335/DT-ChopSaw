@@ -53,7 +53,7 @@ def animation_test():
 
     # fig, axs = plt.subplots(nrows=1, ncols=2)
     # animate(cut, actions, rate=.01, block=False, fig=fig, ax=axs[0])
-    animateWithData(cut, actions, rate=0.01, logger=cut.logger, y_names=[ "cut_depth", "load"])
+    animateWithData(cut, actions, rate=0.05, logger=cut.logger, y_names=[ "cut_depth", "load"])
 
 def resetDB():
     l = Logger(Blade())
