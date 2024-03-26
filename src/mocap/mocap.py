@@ -6,7 +6,10 @@
 | Organization: Product Lifecycle Management Center at Clemson University, plmcenter@clemson.edu  
 | Permission: Copyright (C) 2023, John Morris. All rights reserved. Should not be reproduced, 
 |       edited, sourced, or utilized without written permission from the author or organization
-|  
+| Sources:
+|   1. Rosebrock, A. (29 Sep 2014). "Finding the Brightest Spot in an Image using Python and 
+|       OpenCV". PyImageSearch. Accessed 4 Mar 2024. https://pyimagesearch.com/2014/09/29/
+|       finding-brightest-spot-image-using-python-opencv/
 | Version History:
 | - 0.0, 4 Mar 2024: initialized
 """
@@ -24,7 +27,7 @@ class Mocap():
         Accessed 4 Mar 2024. http://www.kwon3d.com/theory/dlt/dlt.html
     '''
 
-    def __init__(self, skeleton: list):
+    def __init__(self, skeleton: list, num_cameras: int=2):
         """
         Parameters
         ----------
@@ -35,21 +38,59 @@ class Mocap():
         self.is_calibrated = False
         self.global_skeleton = skeleton
         self.planar_skeleton = self.planar2global(self.global_skeleton)
+        self.num_cameras = num_cameras
         
-    def calibrate(self):
+    def calibrate(self, control_pts):
         '''Calibrates the class for according to a calibration object for use in arbitrary
-        coordination.'''
+        coordination.
+        
+        Paramters
+        ---------
+        control_pts : array_like
+            A list of a least 6 control points, where each entry is an (x, y, z) array.
+        '''
         self.L = np.ones((1, 16))
         self.is_calibrated = True
         pass
 
-    def planar2global(self, A):
-        """Transforms the matrix A from planar coordinates to global (3D) coordinants."""
+    def planar2global(self, u, v) -> tuple:
+        """Transforms the 2D point (u, v) from planar coordinates to global (3D) coordinants 
+        (x, y, z)."""
+        #TODO: Make a function for inverting Eq. 22 at http://www.kwon3d.com/theory/dlt/dlt.html
         pass
 
-    def global2planar(self, A):
-        """Transforms the matrix A from global (3D) coordinates to planar coordinants."""
-        pass
+    def calcTransformationMatrix(self, planar_control_pts, global_control_pts) -> np.NDArray:
+        """Calculates the transformation matrix for the camera system.
+
+        The transformation matrix `P` maps all the points from `global_control_pts` to the equivalent
+        points in `planar_control_pts`. After being calculated, assuming the cameras are not moved from
+        their calibrated positions, global points can be calculated as `np.linalg(P, x)`, where `x` is
+        a vector of the planar position coordinates.
+        
+        Parameters
+        ----------
+        planar_control_pts : 1xn vector of 1x2 vectors, where each subvector is an planar point 
+            with coordinates (u, v)
+        global_control_pts : 1xn vector of 1x3 vectors, where each subvector is a global point
+            with coordinates (u, v, w). The point at each index must pair with the similar point
+            in planar_control_pts
+
+        Notes
+        -----
+        1. The number of control points (the length of `planar_control_pts` and `global_control_pts`, 
+        n) must be at least 6.
+        1. The control points cannot lie in the same plane (to avoid a singular system decomposition).
+        """
+        for c in range(self.num_cameras):
+            # R = self.L9[c] * 
+            pass
+
+    def global2planar(self, x, y, z) -> tuple:
+        """Transforms the global (3D) coordinates (x, y, z) to planar coordinants (u, v)."""
+        denom = self.L9 * x + self.L10 * y + self.L11 * z + 1
+        u = (self.L1 * x + self.L2 * y + self.L3 + self.L4) / denom
+        v = (self.L5 * x + self.L6 * y + self.L7 + self.L8) / denom
+        return u, v
 
     def updateSkeleton(self, img_path: str):
         """Updates the skeleton points to the points found in the image."""
@@ -78,7 +119,7 @@ class Mocap():
         if prev_markers is None: 
             prev_markers = self.getDefaultMarkers()
         img = self.getImage(img_path)
-        grayscale = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        grayscale = self.makeGrayscale(img)
         blurred = self.blurImage(grayscale)
         new_pts = list()
         for marker in prev_markers:
@@ -124,6 +165,11 @@ class Mocap():
         """Returns the image at the filepath as an array_like object."""
         img = cv2.imread(img_path)
         return img
+    
+    def makeGrayscale(self, img):
+        """Removes color in the image leaving only shades of black, grey, and white."""
+        out = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        return out
     
     def blurImage(self, img, radius=15):
         """Performs Gaussian blurring on the image with given radius."""
