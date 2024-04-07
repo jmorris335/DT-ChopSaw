@@ -15,90 +15,145 @@
 """
 
 import numpy as np
-import cv2
+import cv2 as cv
 
+from src.mocap.calibration import calibrateCameraIntrinsic, stereoCalibration
 from src.auxiliary.geometry import pointDistance
 
 class Mocap():
-    '''
-    Performs linear transformations of planar points into 3D space.
+    """Performs linear transformations of planar points into 3D space.
 
     Source: Kwon, Y. (1998). Direct Linear Transformation. Kwon3D. 
         Accessed 4 Mar 2024. http://www.kwon3d.com/theory/dlt/dlt.html
-    '''
+    """
 
-    def __init__(self, skeleton: list, num_cameras: int=2):
+    def __init__(self, skeleton: list=None, num_cameras: int=2):
         """
         Parameters
         ----------
         skeleton : list
-            A list of tuples (length 2) marking known locations of the skeleton points. The 
+            A list of tuples (length 3) marking known global locations of the skeleton points. The 
             points are solved in the order of this list.
+
+        Class Members
+        -------------
+        planar_skeletons : list
+            A list (length equal to `num_cameras`) of planar coordinates of each skeleton point
+            in the coordinate system of the camera
         """
         self.is_calibrated = False
         self.global_skeleton = skeleton
-        self.planar_skeleton = self.planar2global(self.global_skeleton)
+        if skeleton is None:
+            self.planar_skeletons = self.getDefaultMarkers()
+        # self.planar_skeletons = self.planar2global(self.global_skeleton)
         self.num_cameras = num_cameras
-        
-    def calibrate(self, control_pts):
-        '''Calibrates the class for according to a calibration object for use in arbitrary
+        self.calibrate()
+
+    def calibrate(self):
+        """Calibrates the class for according to a calibration object for use in arbitrary
         coordination.
         
         Paramters
         ---------
         control_pts : array_like
             A list of a least 6 control points, where each entry is an (x, y, z) array.
-        '''
-        self.L = np.ones((1, 16))
-        self.is_calibrated = True
-        pass
-
-    def planar2global(self, u, v) -> tuple:
-        """Transforms the 2D point (u, v) from planar coordinates to global (3D) coordinants 
-        (x, y, z)."""
-        #TODO: Make a function for inverting Eq. 22 at http://www.kwon3d.com/theory/dlt/dlt.html
-        pass
-
-    def calcTransformationMatrix(self, planar_control_pts, global_control_pts) -> np.NDArray:
-        """Calculates the transformation matrix for the camera system.
-
-        The transformation matrix `P` maps all the points from `global_control_pts` to the equivalent
-        points in `planar_control_pts`. After being calculated, assuming the cameras are not moved from
-        their calibrated positions, global points can be calculated as `np.linalg(P, x)`, where `x` is
-        a vector of the planar position coordinates.
-        
-        Parameters
-        ----------
-        planar_control_pts : 1xn vector of 1x2 vectors, where each subvector is an planar point 
-            with coordinates (u, v)
-        global_control_pts : 1xn vector of 1x3 vectors, where each subvector is a global point
-            with coordinates (u, v, w). The point at each index must pair with the similar point
-            in planar_control_pts
-
-        Notes
-        -----
-        1. The number of control points (the length of `planar_control_pts` and `global_control_pts`, 
-        n) must be at least 6.
-        1. The control points cannot lie in the same plane (to avoid a singular system decomposition).
         """
-        for c in range(self.num_cameras):
-            # R = self.L9[c] * 
-            pass
+        cameras = ["A", "B"]
+        num_rows = 4
+        num_cols = 7
+        square_size = 2.5 #Units are cm
+        cam_mtrxs, cam_dist_coeffs = list(), list()
+        for camera in cameras:
+            # mono_img_paths = [f"src/mocap/test-mocap/{camera}_calib_{i+1}.jpg" for i in range(9)]
+            mono_img_paths = [f"src/mocap/temugeB_demo/frames/mono_calib/camera{camera}_{i}.png" for i in range(4)]
+            calib_consts = calibrateCameraIntrinsic(mono_img_paths, num_rows, num_cols, square_size, show_images=False)
+            cam_mtrxs.append(calib_consts['camera_matrix'])
+            cam_dist_coeffs.append(calib_consts['dist_coeffs'])
+    
+        stereo_img_paths_A = [f"src/mocap/temugeB_demo/frames/synched/cameraA_{i}.png" for i in range(4)]
+        stereo_img_paths_B = [f"src/mocap/temugeB_demo/frames/synched/cameraB_{i}.png" for i in range(4)]
+        rmse, R, T = stereoCalibration(stereo_img_paths_A, stereo_img_paths_B, *cam_mtrxs, *cam_dist_coeffs, 
+                      num_rows, num_cols, square_size, show_images=False)
 
-    def global2planar(self, x, y, z) -> tuple:
-        """Transforms the global (3D) coordinates (x, y, z) to planar coordinants (u, v)."""
-        denom = self.L9 * x + self.L10 * y + self.L11 * z + 1
-        u = (self.L1 * x + self.L2 * y + self.L3 + self.L4) / denom
-        v = (self.L5 * x + self.L6 * y + self.L7 + self.L8) / denom
-        return u, v
+        self.projection_mtrxs = list()
+        RT1 = np.concatenate([np.eye(3), [[0],[0],[0]]], axis = -1)
+        P1 = R @ RT1 #projection matrix for C1
+        self.projection_mtrxs.append(P1)
+    
+        RT2 = np.concatenate([R, T], axis = -1)
+        P2 = R @ RT2 #projection matrix for C2
+        self.projection_mtrxs.append(P2)
 
-    def updateSkeleton(self, img_path: str):
-        """Updates the skeleton points to the points found in the image."""
-        markers = self.getMarkerCoords(img_path, self.planar_skeleton)
-        matches = self.matchMarkersWithSkeleton(markers)
-        for i, sk in enumerate(self.planar_skeleton):
-            self.planar_skeleton[i] = matches[sk]
-        self.global_skeleton = self.planar2global(self.planar_skeleton)
+    def planar2global(self) -> tuple:
+        """Transforms the 2D point (u, v) from planar coordinates to global (3D) coordinants 
+        (x, y, z) using Direct Linear Transformation.
+
+        Inputs are 2x1 array_like. Output is 3x2 array_like.
+        
+        #TODO: This is copied from temugeB as a placeholder, it needs to be reviewed and replaced.
+        Currently returns the 3D coordinates for a point triangulated between 2 planar coordinate systems
+        with given projection matrices. It also only works for 2 cameras."""
+        global_pnts = list()
+        u_pnts, v_pnts = self.planar_skeletons[:2]
+
+        for u, v in zip(u_pnts, v_pnts):
+            projection_mtrx_A = self.projection_mtrxs[0]
+            projection_mtrx_B = self.projection_mtrxs[1]
+            A = [u[1]*projection_mtrx_A[2,:] - projection_mtrx_A[1,:],
+                projection_mtrx_A[0,:] - u[0]*projection_mtrx_A[2,:],
+                v[1]*projection_mtrx_B[2,:] - projection_mtrx_B[1,:],
+                projection_mtrx_B[0,:] - v[0]*projection_mtrx_B[2,:]
+                ]
+            A = np.array(A).reshape((4,4))
+        
+            B = A.transpose() @ A
+            U, s, Vh = np.linalg.svd(B, full_matrices = False)
+            global_pnts.append(Vh[3,0:3]/Vh[3,3])
+        return global_pnts
+
+    # def calcTransformationMatrix(self, planar_control_pts, global_control_pts) -> np.NDArray:
+    #     """Calculates the transformation matrix for the camera system.
+
+    #     The transformation matrix `P` maps all the points from `global_control_pts` to the equivalent
+    #     points in `planar_control_pts`. After being calculated, assuming the cameras are not moved from
+    #     their calibrated positions, global points can be calculated as `np.linalg(P, x)`, where `x` is
+    #     a vector of the planar position coordinates.
+        
+    #     Parameters
+    #     ----------
+    #     planar_control_pts : 1xn vector of 1x2 vectors, where each subvector is an planar point 
+    #         with coordinates (u, v)
+    #     global_control_pts : 1xn vector of 1x3 vectors, where each subvector is a global point
+    #         with coordinates (u, v, w). The point at each index must pair with the similar point
+    #         in planar_control_pts
+
+    #     Notes
+    #     -----
+    #     1. The number of control points (the length of `planar_control_pts` and `global_control_pts`, 
+    #     n) must be at least 6.
+    #     1. The control points cannot lie in the same plane (to avoid a singular system decomposition).
+    #     """
+    #     for c in range(self.num_cameras):
+    #         # R = self.L9[c] * 
+    #         pass
+
+    # def global2planar(self, x, y, z) -> tuple:
+    #     """Transforms the global (3D) coordinates (x, y, z) to planar coordinants (u, v)."""
+    #     denom = self.L9 * x + self.L10 * y + self.L11 * z + 1
+    #     u = (self.L1 * x + self.L2 * y + self.L3 + self.L4) / denom
+    #     v = (self.L5 * x + self.L6 * y + self.L7 + self.L8) / denom
+    #     return u, v
+
+    def updateSkeleton(self, img_paths: list):
+        """Updates the skeleton (planar and global) points to the points found in the image.
+        
+        img_paths is a list of paths of size similar to planar_skeletons.
+        """
+        for planar_skeleton, img_path in zip(self.planar_skeletons, img_paths):
+            markers = self.getMarkerCoords(img_path, planar_skeleton)
+            planar_skeleton = self.matchMarkersWithSkeleton(markers, planar_skeleton)
+            self.displayMarkers(planar_skeleton, img_path)
+        self.global_skeleton = self.planar2global()
 
     def getMarkerCoords(self, img_path: str, prev_markers: list) -> list:
         """Returns a list of planar coordinates for the brightest point around each 
@@ -127,15 +182,15 @@ class Mocap():
             new_pts.append(new_pt)
         return new_pts
     
-    def matchMarkersWithSkeleton(self, markers: list) -> dict:
+    def matchMarkersWithSkeleton(self, markers: list, prev_markers) -> dict:
         """Returns a dictionary where each skeleton point is matched with a discovered
         marker point.
 
         Parameters
         ----------
         markers : list
-            A list of possible coordinates for each skeleton point. Must be of greater length than 
-            `self.planar_skeleton`.
+            A list of possible coordinates for each skeleton point. Must be of equal or greater 
+            length than `self.planar_skeleton`.
 
         Returns
         -------
@@ -146,34 +201,44 @@ class Mocap():
         ------
         Exception
         """
-        if len(markers) < len(self.planar_skeleton): 
-            raise ValueError(f"Not enough markers ({len(markers)}) to match with Skeleton ({len(self.planar_skeleton)}).")
-        matches = dict()
-        for p_sk in self.planar_skeleton:
+        if len(markers) < len(prev_markers): 
+            raise ValueError(f"Not enough markers ({len(markers)}) to match with Skeleton ({len(prev_markers)}).")
+        matches = list()
+        #Find which marker is closest to a skeleton point
+        for p_sk in prev_markers:
             d = [pointDistance(p_sk, m) for m in markers]
             marker = markers[d.index(min(d))]
-            matches[p_sk] = marker
+            matches.append(marker)
             markers.remove(marker)
         return matches
 
     def getDefaultMarkers(self) -> list:
         """Returns list of planar coordinates of the default markers for the saw in 
         resting position."""
-        pass
+        uvs1 = [[458, 86], [451, 164], [287, 181],
+                # [196, 383], [297, 444], [564, 194],
+                # [562, 375], [596, 520], [329, 620],
+                [488, 622], [432, 52], [489, 56]]
+ 
+        uvs2 = [[540, 311], [603, 359], [542, 378],
+                # [525, 507], [485, 542], [691, 352],
+                # [752, 488], [711, 605], [549, 651],
+                [651, 663], [526, 293], [542, 290]]
+        return uvs1, uvs2
 
     def getImage(self, img_path):
         """Returns the image at the filepath as an array_like object."""
-        img = cv2.imread(img_path)
+        img = cv.imread(img_path)
         return img
     
     def makeGrayscale(self, img):
         """Removes color in the image leaving only shades of black, grey, and white."""
-        out = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        out = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
         return out
     
     def blurImage(self, img, radius=15):
         """Performs Gaussian blurring on the image with given radius."""
-        blurred = cv2.GaussianBlur(img, (radius, radius), 0)
+        blurred = cv.GaussianBlur(img, (radius, radius), 0)
         return blurred
     
     def findBrightestPoint(self, img, point: tuple=None, dx: float=0.05, dy: float=None) -> tuple:
@@ -204,8 +269,8 @@ class Mocap():
         """
         if point is not None:
             img = self.getRegionFromImage(img, point, dx, dy)
-        (minVal, maxVal, minLoc, maxLoc) = cv2.minMaxLoc(img)
-        return (maxLoc.x, maxLoc.y)
+        (minVal, maxVal, minLoc, maxLoc) = cv.minMaxLoc(img)
+        return (maxLoc[0], maxLoc[1])
         
     def getRegionFromImage(self, img, point: tuple, dx: float=0.05, dy: float=None):
         """Clips the given image to a box region centered at the `point` with width dx
@@ -224,6 +289,36 @@ class Mocap():
         clipped_img = img[min_x : max_x][min_y : max_y]
 
         return clipped_img
+
+    def displayMarkers(self, marker_coords: list, img_path: str=None, img_frame=None):
+        """Displays the markers on the given image.
+        
+        Wrapper for `OpenCV.drawMarker` function. Either`img_path` and `img_frame` 
+        must be passed to the function.
+
+        Parameters
+        ----------
+        marker_coords: list
+            List of (2x1) array_like pixel coordinates for each marker.
+        img_path: str, Optional
+            Filepath for the image to display the markers on.
+        img_frame: list, Optional
+            The read frame in the form of `cv.InputOutputArray`
+        """
+        if img_path is not None:
+            frame = cv.imread(img_path, 1)
+        elif img_frame is None:
+            raise(Exception("No image path or IOarray was passed to display markers"))
+        else: frame = img_frame
+
+        for m in marker_coords:
+            cv.drawMarker(frame, m[:2], color=(0, 0, 255), 
+                          markerType=cv.MARKER_CROSS, markerSize=20, thickness=2)
+        cv.imshow("Marker Positioning", frame)
+        cv.waitKey(0)
+
+
+
 
 
     

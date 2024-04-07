@@ -11,7 +11,6 @@
 """
 
 import numpy as np
-import os
 import cv2 as cv
 
 
@@ -130,26 +129,6 @@ def displayCalibImg(frame, num_rows, num_cols, corners):
         return None
     
     return frame
-
-def save_camera_intrinsics(camera_matrix, distortion_coefs, camera_name):
-    """ Saves the camera constants to a new data file.
-    """
-    if not os.path.exists('src/mocap/camera_parameters'):
-        os.mkdir('src/mocap/camera_parameters')
-
-    out_filename = os.path.join('src/mocap/camera_parameters', camera_name + '_intrinsics.dat')
-    outf = open(out_filename, 'w')
-
-    outf.write('intrinsic:\n')
-    for l in camera_matrix:
-        for en in l:
-            outf.write(str(en) + ' ')
-        outf.write('\n')
-
-    outf.write('distortion:\n')
-    for en in distortion_coefs[0]:
-        outf.write(str(en) + ' ')
-    outf.write('\n')
 
 def stereoCalibration(img_filepaths_A: list, img_filepaths_B: list,
                       mtx_A, mtx_B, dist_A, dist_B,
