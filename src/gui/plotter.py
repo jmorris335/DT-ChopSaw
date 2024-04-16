@@ -8,6 +8,8 @@
 | - 0.1 31 Jan 2024: Initialization
 """
 
+from matplotlib import use
+use('tkagg')
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
@@ -83,7 +85,7 @@ def animateWithData(entity: Twin, actions: list, logger: Logger, y_names: list, 
 
     bm = BlitManager(fig.canvas, artists)
     plt.show(block=False)
-    plt.pause(rate)
+    # plt.pause(rate)
 
     for action in actions:
         entity.set(**action)
@@ -109,8 +111,9 @@ def animateWithData(entity: Twin, actions: list, logger: Logger, y_names: list, 
                 buffer = abs(max_y - min_y) * 0.1
                 axs[1].set_ylim(y_lim[0], max_y + buffer)
                 plt.show(block=False)
+
         bm.update()
-        plt.pause(rate)
+        # plt.pause(rate)
 
     plt.show(block=True)
 

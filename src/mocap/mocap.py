@@ -151,8 +151,9 @@ class Mocap():
         """
         for planar_skeleton, img_path in zip(self.planar_skeletons, img_paths):
             markers = self.getMarkerCoords(img_path, planar_skeleton)
-            planar_skeleton = self.matchMarkersWithSkeleton(markers, planar_skeleton)
-            self.displayMarkers(planar_skeleton, img_path)
+            # planar_skeleton = self.matchMarkersWithSkeleton(markers, planar_skeleton)
+            # self.displayMarkers(planar_skeleton, img_path)
+            self.displayMarkers(markers, img_path)
         self.global_skeleton = self.planar2global()
 
     def getMarkerCoords(self, img_path: str, prev_markers: list) -> list:
@@ -176,11 +177,12 @@ class Mocap():
         img = self.getImage(img_path)
         grayscale = self.makeGrayscale(img)
         blurred = self.blurImage(grayscale)
-        new_pts = list()
-        for marker in prev_markers:
-            new_pt = self.findBrightestPoint(blurred, marker)
-            new_pts.append(new_pt)
-        return new_pts
+        new_markers = list()
+        for prev_marker in prev_markers:
+            new_marker = self.findBrightestPoint(blurred, prev_marker)
+            new_markers.append(new_marker)
+        self.displayMarkers(new_markers, img_frame=img)
+        return new_markers
     
     def matchMarkersWithSkeleton(self, markers: list, prev_markers) -> dict:
         """Returns a dictionary where each skeleton point is matched with a discovered
@@ -215,15 +217,8 @@ class Mocap():
     def getDefaultMarkers(self) -> list:
         """Returns list of planar coordinates of the default markers for the saw in 
         resting position."""
-        uvs1 = [[458, 86], [451, 164], [287, 181],
-                # [196, 383], [297, 444], [564, 194],
-                # [562, 375], [596, 520], [329, 620],
-                [488, 622], [432, 52], [489, 56]]
- 
-        uvs2 = [[540, 311], [603, 359], [542, 378],
-                # [525, 507], [485, 542], [691, 352],
-                # [752, 488], [711, 605], [549, 651],
-                [651, 663], [526, 293], [542, 290]]
+        uvs1 = [[761, 1231], [1061, 1354], [1343, 1360], [2162, 942], [1642, 618], [984, 15]]
+        uvs2 = [[1525, 668], [2102, 1028], [1054, 1503], [753, 1476], [627, 1341], [826, 29]]
         return uvs1, uvs2
 
     def getImage(self, img_path):
@@ -241,7 +236,7 @@ class Mocap():
         blurred = cv.GaussianBlur(img, (radius, radius), 0)
         return blurred
     
-    def findBrightestPoint(self, img, point: tuple=None, dx: float=0.05, dy: float=None) -> tuple:
+    def findBrightestPoint(self, reduced_img, point: tuple=None, dx: float=0.05, dy: float=None) -> tuple:
         """Returns the location for the brightest pixel in the image.
         
         Parameters
@@ -268,27 +263,40 @@ class Mocap():
         located near the edges of the image are necessarily smaller than indicated.
         """
         if point is not None:
-            img = self.getRegionFromImage(img, point, dx, dy)
-        (minVal, maxVal, minLoc, maxLoc) = cv.minMaxLoc(img)
-        return (maxLoc[0], maxLoc[1])
+            reduced_img, limits = self.getRegionFromImage(reduced_img, point, dx, dy)
+        (minVal, maxVal, minLoc, maxLoc) = cv.minMaxLoc(reduced_img)
+        point = (limits[0] + maxLoc[0], 
+                 limits[2] + maxLoc[1])
+        # cv.drawMarker(reduced_img, (maxLoc[0], maxLoc[1]), (0, 0, 255), cv.MARKER_DIAMOND, 20, 2, 1)
+        # cv.imshow("Brightest Point", reduced_img)
+        # cv.waitKey(0)
+        # cv.destroyAllWindows()
+        return point
         
     def getRegionFromImage(self, img, point: tuple, dx: float=0.05, dy: float=None):
         """Clips the given image to a box region centered at the `point` with width dx
-        and height dy."""
+        and height dy.
+        
+        Returns
+        -------
+            array_like: 2D subset of `img`
+            tuple: 4x1 tuple with coordinates of the region as `(min_x, max_x, min_y, max_y)`,
+                so that the outputted image can be calculated as `img[min_y : max_y, min_x : max_x]`
+        """
         width = min([len(i) for i in img])
         height = len(img)
-        dx = np.round(dx * width)
         if dy is None: 
             dy = dx
+        dx = np.round(dx * width)
         dy = np.round(dy * height)
 
         min_x = np.rint(max(0, point[0] - dx)).astype(int)
         max_x = np.rint(min(width, point[0] + dx)).astype(int)
         min_y = np.rint(max(0, point[1] - dy)).astype(int)
-        max_y = np.rint(min(width, point[1] + dy)).astype(int)
-        clipped_img = img[min_x : max_x][min_y : max_y]
-
-        return clipped_img
+        max_y = np.rint(min(height, point[1] + dy)).astype(int)
+        img = np.array(img)
+        clipped_img = img[min_y : max_y, min_x : max_x]
+        return clipped_img, (min_x, max_x, min_y, max_y)
 
     def displayMarkers(self, marker_coords: list, img_path: str=None, img_frame=None):
         """Displays the markers on the given image.
@@ -316,6 +324,7 @@ class Mocap():
                           markerType=cv.MARKER_CROSS, markerSize=20, thickness=2)
         cv.imshow("Marker Positioning", frame)
         cv.waitKey(0)
+        cv.destroyAllWindows()
 
 
 

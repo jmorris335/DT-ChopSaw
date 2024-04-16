@@ -9,6 +9,7 @@ from src.db.logger import Logger
 def dev_sim_main():
     resetDB()
     animation_test()
+    # cut_test()
 
 def cut_test():
     # arm = Arm(h0_arm=0.1603881341161963, x_arm=0.005)

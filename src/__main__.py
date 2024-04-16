@@ -4,6 +4,7 @@ from src.mocap.mocap_sim import saw_sim
 
 def main():
     saw_sim()
+    # dev_sim_main()
 
 
 if __name__ == '__main__':
