@@ -69,17 +69,17 @@ class Logger:
 
     def setupTwinTable(self):
         """Createds the twin table in the database if it does not already exist."""
-        self.addTable(twin_tbl_name, twin_tbl_cols, twin_tbl_vartypes)
+        self.addTable(TWIN_TBL_NAME, TWIN_TBL_COLS, TWIN_TBL_VARTYPES)
 
     def setupDataTable(self):
         """Creates the data table in the database if it does not already exist."""
-        self.addTable(simdata_tbl_name, simdata_tbl_cols, simdata_tbl_vartypes)
+        self.addTable(SIMDATA_TBL_NAME, SIMDATA_TBL_COLS, SIMDATA_TBL_VARTYPES)
 
     def setupLogTable(self):
         """Creates the log table in the database if it does not already exist."""
         cols = ['time', 'entity_id', 'value']
         var_types = ['DOUBLE', 'INT', 'DOUBLE']
-        self.addTable(log_tbl_name, log_tbl_cols, log_tbl_vartypes)
+        self.addTable(LOG_TBL_NAME, LOG_TBL_COLS, LOG_TBL_VARTYPES)
 
     def addTable(self, name: str, columns: list, var_types: list):
         """Adds a table to the database.
@@ -106,13 +106,13 @@ class Logger:
         """Adds the entity to the twin table and adds the entity_id to the class."""
         values = [self.entity.name]
         cols = ['name']
-        db.addEntry(self.csr, twin_tbl_name, values, cols)
+        db.addEntry(self.csr, TWIN_TBL_NAME, values, cols)
         self.entity_id = self.findEntityID()
         
     def findEntityID(self):
         """Returns the ID for the most recently added entity with the name associated with the
         `Logger`."""
-        entities_with_name = db.getEntriesWhere(self.csr, twin_tbl_name, 'name', self.entity.name)
+        entities_with_name = db.getEntriesWhere(self.csr, TWIN_TBL_NAME, 'name', self.entity.name)
         return entities_with_name[-1][0]
 
     def addSimData(self, label: str, val: float, time_val: float=None):
@@ -129,7 +129,7 @@ class Logger:
             time_val = time.time()
         values = [time_val, self.entity_id, label, val]
         columns = ['time', 'entity_id', 'label', 'value']
-        db.addEntry(self.csr, simdata_tbl_name, values, columns)
+        db.addEntry(self.csr, SIMDATA_TBL_NAME, values, columns)
 
     def setData(self, name, val):
         """Adds the data point and sets the value in the entity.
@@ -155,7 +155,7 @@ class Logger:
         
         Adds one to account for primary key (not listed in db_names)
         """
-        return simdata_tbl_cols.index(column) + 1
+        return SIMDATA_TBL_COLS.index(column) + 1
     
     def getLatestEntry(self, label: str):
         """Returns the most recently added entry from the `SimData` table for the entry
@@ -192,7 +192,7 @@ class Logger:
     
     def getAllRows(self, label: str=None, column: str=None) -> list:
         """Returns all rows in the SimData table. Filtered by label and column if provided."""
-        entries = db.getEntries(self.csr, simdata_tbl_name)
+        entries = db.getEntries(self.csr, SIMDATA_TBL_NAME)
         def fun(entry):
             if label is not None:
                 if not entry[self.col_idx('label')] == label: return False
@@ -207,7 +207,7 @@ class Logger:
         """Adds the message to the log along with the time stamp."""
         values = [time.time(), self.entity_id, log_entry]
         cols = ['time', 'entity_id', 'log_entry']
-        db.addEntry(self.csr, log_tbl_name, values, cols)
+        db.addEntry(self.csr, LOG_TBL_NAME, values, cols)
 
     def resetTables(self):
         """Clears the tables associated with the logger and resets the database so that entries
@@ -216,17 +216,17 @@ class Logger:
         Note that the function can only be called if global configuration SUDO is set to True.
         """
         if not SUDO: return
-        db.removeFromTable(self.csr, twin_tbl_name, 'entity_id', self.entity_id)
-        db.removeFromTable(self.csr, log_tbl_name, 'entity_id', self.entity_id)
-        db.removeFromTable(self.csr, simdata_tbl_name, 'entity_id', self.entity_id)
+        db.removeFromTable(self.csr, TWIN_TBL_NAME, 'entity_id', self.entity_id)
+        db.removeFromTable(self.csr, LOG_TBL_NAME, 'entity_id', self.entity_id)
+        db.removeFromTable(self.csr, SIMDATA_TBL_NAME, 'entity_id', self.entity_id)
 
     def resetDB(self):
         """Removes all tables from the database affiliated with the Logger. SUDO must be true.
         """
         if not SUDO: return
-        db.dropTable(self.csr, twin_tbl_name)
-        db.dropTable(self.csr, log_tbl_name)
-        db.dropTable(self.csr, simdata_tbl_name)
+        db.dropTable(self.csr, TWIN_TBL_NAME)
+        db.dropTable(self.csr, LOG_TBL_NAME)
+        db.dropTable(self.csr, SIMDATA_TBL_NAME)
 
 if DB_OFF:
     Logger = Mock(Logger)
