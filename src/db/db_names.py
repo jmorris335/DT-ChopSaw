@@ -42,7 +42,25 @@ LOG_TBL_VARTYPES = ['DOUBLE', 'INT', 'TEXT']
 """
 MOCAP_TBL_NAME = 'Mocap'
 MOCAP_TBL_COLS = ['mocap_pk', 'label', 'value', 'sequence', 'marker_pk']
-LOG_TBL_VARTYPES = ['INT', 'VARCHAR', 'FLOAT', 'INT', 'INT']
+MOCAP_TBL_VARTYPES = ['INT', 'VARCHAR', 'FLOAT', 'INT', 'INT']
+############################################
+
+############################################
+"""MocapSequences table:
+    Table of all Mocap coordinate sequences and their timestampes.
+"""
+MOCAPSEQ_TBL_NAME = 'MocapSequences'
+MOCAPSEQ_TBL_COLS = ['sequence_pk', 'timestamp']
+MOCAPSEQ_TBL_VARTYPES = ['INT', 'TIMESTAMP']
+############################################
+
+############################################
+"""MocapMarkers table:
+    Table of all Mocap markers and their labels.
+"""
+MOCAPMKR_TBL_NAME = 'MocapMarkers'
+MOCAPMKR_TBL_COLS = ['marker_pk', 'label']
+MOCAPMKR_TBL_VARTYPES = ['INT', 'VARCHAR']
 ############################################
 
 

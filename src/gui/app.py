@@ -5,12 +5,12 @@ import plotly.graph_objects as go
 import numpy as np
 from time import mktime, strptime, time as current_time
 
-from src.db.reader import Reader
+from src.db.actor import DBActor
 from src.db.db_names import *
 
 PLOT_DELAY = 3 #seconds
 app = Dash(update_title=None)
-db = Reader()
+db = DBActor()
 
 fig__saw_live = go.Figure(data=[go.Scatter3d(
     x=[0, 0, 1], y=[0, 0, 1], z=[0, 1, 1], 
@@ -18,9 +18,9 @@ fig__saw_live = go.Figure(data=[go.Scatter3d(
     line= dict(width = 20))])
 fig__saw_live.update_layout(
     scene = dict(
-        xaxis = dict(nticks=4, range=[0,6],),
-        yaxis = dict(nticks=4, range=[0,6],),
-        zaxis = dict(nticks=4, range=[0,6],),
+        xaxis = dict(nticks=4, range=[-5,45],),
+        yaxis = dict(nticks=4, range=[-5,45],),
+        zaxis = dict(nticks=4, range=[-5,45],),
         aspectmode='manual',
         aspectratio=dict(x=1, y=1, z=1)),
     margin=dict(r=20, l=10, b=10, t=10))
@@ -87,7 +87,6 @@ def getSawPositionData(n_intervals, data):
 
 def getSawPositions(last_seq)-> list:
     """Gets the latest saw positions from the database."""
-    addMarkers(np.random.randint(0, 3))
     seqs = db.sql(f"Select * FROM `MocapSequences` WHERE `sequence_pk` > %(val)s", dict(val=last_seq))
     mocap_data = db.sql(f"SELECT * FROM `Mocap` WHERE `sequence` > %(val)s", dict(val=last_seq))
     sequences = [dict(sequence=s[0], markers=dict(), time=time2Float(s[1])) for s in seqs]
@@ -105,27 +104,6 @@ def time2Float(time_in: str)-> float:
     if isinstance(time_in, float): return time_in
     epoch = float(time_in.strftime('%s.%f'))
     return epoch
-
-##### DEV #######
-from src.db.db_ops import addEntry, getEntries
-
-def addMarkers(n: int=1):
-    entries = getEntries(db.csr, "MocapSequences", "sequence_pk")
-    last_seq = max([i[0] for i in entries])
-    for i in range(n):
-        seq = last_seq + i + 1
-        addEntry(db.csr, "MocapSequences", [seq], ["sequence_pk"])
-        entries = getEntries(db.csr, "Mocap", "mocap_pk")
-        pk = max([i[0] for i in entries]) + 1
-
-        for mrkr in [1, 2]:
-            for label in ['x', 'y', 'z']:
-                value = np.random.rand() * 6
-                addEntry(db.csr, "Mocap", 
-                         [pk, label, value, seq, mrkr], 
-                         ['mocap_pk', 'label', 'value', 'sequence', 'marker_pk'])
-                pk += 1
-#################
         
 def run():
     app.run_server(debug=False)

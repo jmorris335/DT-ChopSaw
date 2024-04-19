@@ -202,6 +202,22 @@ def checkIfColExists(csr: Cursor, table_name: str, column_name: str) -> bool:
     results = csr.fetchall()
     return len(results) > 0
 
+def getColumnIndex(csr: Cursor, column_name: str) -> int:
+    """Returns the index for a given column."""
+    col_names = [i[0] for i in csr.description]
+    index = col_names.index(column_name)
+    return index
+
+def getMaxPrimaryKey(csr: Cursor, table_name: str) -> int:
+    """Returns the maximum primary key for the given table."""
+    cmd = f"SHOW KEYS FROM `{table_name}` WHERE Key_name = 'PRIMARY';"
+    csr.execute(cmd, {'table_name' : table_name})
+    idx = getColumnIndex(csr, "Column_name")
+    pk_column_name = csr.fetchall()[0][idx]
+    entries = getEntries(csr, table_name, pk_column_name)
+    max_pk = max([i[0] for i in entries])
+    return max_pk
+
 def setupForeignKey(csr: Cursor, table_name: str, column_name: str, fk_table: str, fk_column: str):
     """Adds the designation of a foreign key to the column in the table."""
     cmd = f"ALTER TABLE `{table_name}` ADD FOREIGN KEY (%(col)s) REFERENCES `{fk_table}`(%(fk)s);"

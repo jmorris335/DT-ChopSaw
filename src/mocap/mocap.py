@@ -19,6 +19,7 @@ import cv2 as cv
 
 from src.mocap.calibration import calibrateCameraIntrinsic, stereoCalibration
 from src.auxiliary.geometry import pointDistance
+from src.db.actor import DBActor
 
 class Mocap():
     """Performs linear transformations of planar points into 3D space.
@@ -41,6 +42,7 @@ class Mocap():
             A list (length equal to `num_cameras`) of planar coordinates of each skeleton point
             in the coordinate system of the camera
         """
+        self.db = DBActor()
         self.is_calibrated = False
         self.global_skeleton = skeleton
         if skeleton is None:
@@ -48,6 +50,13 @@ class Mocap():
         # self.planar_skeletons = self.planar2global(self.global_skeleton)
         self.num_cameras = num_cameras
         self.calibrate()
+
+        self.markers = dict()
+        self.initializeMarkers()
+
+    def initializeMarkers(self, write2DB: bool=False):
+        labels = ['base_1', 'base_2', 'miter_1', 'bevel_1', 'arm_1', 'arm_2']
+        self.writeMarkers2DB(labels)
 
     def calibrate(self):
         """Calibrates the class for according to a calibration object for use in arbitrary
@@ -153,8 +162,15 @@ class Mocap():
             markers = self.getMarkerCoords(img_path, planar_skeleton)
             # planar_skeleton = self.matchMarkersWithSkeleton(markers, planar_skeleton)
             # self.displayMarkers(planar_skeleton, img_path)
-            self.displayMarkers(markers, img_path)
+            # self.displayMarkers(markers, img_path)
         self.global_skeleton = self.planar2global()
+        self.marker2skeleton(self.global_skeleton)
+        self.writeSequence2DB()
+
+    def marker2skeleton(self, markers: list):
+        for i in range(len(self.markers.keys())):
+            key = list(self.markers.keys())[i]
+            self.markers[key]['coords'] = markers[i]
 
     def getMarkerCoords(self, img_path: str, prev_markers: list) -> list:
         """Returns a list of planar coordinates for the brightest point around each 
@@ -181,7 +197,6 @@ class Mocap():
         for prev_marker in prev_markers:
             new_marker = self.findBrightestPoint(blurred, prev_marker)
             new_markers.append(new_marker)
-        self.displayMarkers(new_markers, img_frame=img)
         return new_markers
     
     def matchMarkersWithSkeleton(self, markers: list, prev_markers) -> dict:
@@ -325,6 +340,37 @@ class Mocap():
         cv.imshow("Marker Positioning", frame)
         cv.waitKey(0)
         cv.destroyAllWindows()
+
+    def writeSequence2DB(self, labels: list=['x', 'y', 'z']):
+        """Writes a sequence of marker coordinates to the Database."""
+        mocapseq_table = self.db.name.MOCAPSEQ_TBL_NAME
+        seq_pk = self.db.getMaxPrimaryKey(mocapseq_table) + 1
+
+        self.db.addEntry(mocapseq_table, [seq_pk], [self.db.name.MOCAPSEQ_TBL_COLS[0]])
+
+        for marker in self.markers.values():
+            mkr_pk = marker['pk']
+            coords = marker['coords']
+            for i, coord_label in enumerate(labels):
+                value = coords[i]
+                self.db.addEntry(self.db.name.MOCAP_TBL_NAME,
+                        [coord_label, value, seq_pk, mkr_pk], 
+                        self.db.name.MOCAP_TBL_COLS[1:])
+
+    def writeMarkers2DB(self, marker_labels: list):
+        """Adds the given markers to the Database and updates the class memory."""
+        table_name = self.db.name.MOCAPMKR_TBL_NAME
+        pk = self.db.getMaxPrimaryKey(table_name) + 1
+        db_markers = self.db.getEntries(table_name)
+        extant_labels = [e[1] for e in db_markers]
+        for l in marker_labels:
+            if l not in extant_labels:
+                self.db.addEntry(table_name, [pk, l], self.db.name.MOCAPMKR_TBL_COLS)
+                pk += 1
+                self.markers[l] = dict(pk=pk, coords=[0]*3)
+            else:
+                db_pk = db_markers[extant_labels.index(l)][0]
+                self.markers[l] = dict(pk=db_pk, coords=[0]*3)
 
 
 
