@@ -3,7 +3,7 @@ from dash.exceptions import PreventUpdate
 import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
-from time import mktime, strptime, time as current_time
+from time import time as current_time
 
 from src.db.actor import DBActor
 from src.db.db_names import *

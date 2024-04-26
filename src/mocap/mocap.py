@@ -28,49 +28,52 @@ class Mocap():
         Accessed 4 Mar 2024. http://www.kwon3d.com/theory/dlt/dlt.html
     """
 
-    def __init__(self, skeleton: list=None, num_cameras: int=2):
+    def __init__(self, camera1, camera2):
         """
         Parameters
         ----------
-        skeleton : list
-            A list of tuples (length 3) marking known global locations of the skeleton points. The 
-            points are solved in the order of this list.
+        camera1 : str | int
+            Either a filepath to a video stream or the camera ID.
+        camera2 : str | int
+            Same as `camera1` for the second camera.
 
         Class Members
         -------------
-        planar_skeletons : list
+        planar_markers : list
             A list (length equal to `num_cameras`) of planar coordinates of each skeleton point
-            in the coordinate system of the camera
+            in the coordinate system of the camera.
+        global_markers : dict
+            A dictionary of markers where the key is the marker label (such as 'base_1'). Each
+            value is a sub-dictionary with the following key-value pairs:
+                pk : int, the primary key of the marker in the database.
+                coords : array_like, an array of length 3 representing x, y, and z coordinates 
+                    of the marker
         """
-        self.db = DBActor()
+        self.cameras = [
+            cv.VideoCapture(camera1),
+            cv.VideoCapture(camera2)
+        ]
         self.is_calibrated = False
-        self.global_skeleton = skeleton
-        if skeleton is None:
-            self.planar_skeletons = self.getDefaultMarkers()
-        # self.planar_skeletons = self.planar2global(self.global_skeleton)
-        self.num_cameras = num_cameras
         self.calibrate()
 
-        self.markers = dict()
-        self.initializeMarkers()
+        self.db = DBActor()
+        self.planar_markers = self.getDefaultMarkers()
+        self.global_markers = dict()
+        self.setupMarkers(['base_1', 'base_2', 'miter_1', 'bevel_1', 'arm_1', 'arm_2'])
 
-    def initializeMarkers(self, write2DB: bool=False):
-        labels = ['base_1', 'base_2', 'miter_1', 'bevel_1', 'arm_1', 'arm_2']
-        self.writeMarkers2DB(labels)
-
-    def calibrate(self):
+    def calibrate(self, imgs_A: list, imgs_B: list, 
+                  num_rows: int=4, num_cols: int=7, square_size: float=2.5):
         """Calibrates the class for according to a calibration object for use in arbitrary
         coordination.
         
         Paramters
         ---------
-        control_pts : array_like
-            A list of a least 6 control points, where each entry is an (x, y, z) array.
+        imgs_A : list
+            A list of filepaths to a calibration image. Each image must contain a chessboard grid.
+        imgs_B : list
+            Same as A but for the second camera.
         """
         cameras = ["A", "B"]
-        num_rows = 4
-        num_cols = 7
-        square_size = 2.5 #Units are cm
         cam_mtrxs, cam_dist_coeffs = list(), list()
         for camera in cameras:
             # mono_img_paths = [f"src/mocap/test-mocap/{camera}_calib_{i+1}.jpg" for i in range(9)]
@@ -93,7 +96,22 @@ class Mocap():
         P2 = R @ RT2 #projection matrix for C2
         self.projection_mtrxs.append(P2)
 
-    def planar2global(self) -> tuple:
+    def updateMarkers(self):
+        """Updates the marker points to the points found in the image.
+        
+        img_paths is a list of paths of size similar to planar_skeletons.
+        """
+        
+        for marker in self.planar_markers:
+            self.updateMarkerCoords(marker)
+        self.global_coords = self.planar2global(*self.planar_markers)
+        self.setMarkerCoords(self.global_coords)
+        self.writeSequence2DB()
+
+    def tagMarkers(self, markers):
+        pass
+
+    def planar2global(self, markers1, markers2) -> tuple:
         """Transforms the 2D point (u, v) from planar coordinates to global (3D) coordinants 
         (x, y, z) using Direct Linear Transformation.
 
@@ -102,17 +120,17 @@ class Mocap():
         #TODO: This is copied from temugeB as a placeholder, it needs to be reviewed and replaced.
         Currently returns the 3D coordinates for a point triangulated between 2 planar coordinate systems
         with given projection matrices. It also only works for 2 cameras."""
+        u_pnts = [markers1['markers'][i] for i in markers1['markers'].keys()]
+        v_pnts = [markers2['markers'][i] for i in markers2['markers'].keys()]
         global_pnts = list()
-        u_pnts, v_pnts = self.planar_skeletons[:2]
 
         for u, v in zip(u_pnts, v_pnts):
-            projection_mtrx_A = self.projection_mtrxs[0]
-            projection_mtrx_B = self.projection_mtrxs[1]
-            A = [u[1]*projection_mtrx_A[2,:] - projection_mtrx_A[1,:],
-                projection_mtrx_A[0,:] - u[0]*projection_mtrx_A[2,:],
-                v[1]*projection_mtrx_B[2,:] - projection_mtrx_B[1,:],
-                projection_mtrx_B[0,:] - v[0]*projection_mtrx_B[2,:]
-                ]
+            pm_A = self.projection_mtrxs[0]
+            pm_B = self.projection_mtrxs[1]
+            A = [u[1]*pm_A[2,:] - pm_A[1,:],
+                 pm_A[0,:]      - u[0]*pm_A[2,:],
+                 v[1]*pm_B[2,:] - pm_B[1,:],
+                 pm_B[0,:]      - v[0]*pm_B[2,:]]
             A = np.array(A).reshape((4,4))
         
             B = A.transpose() @ A
@@ -120,59 +138,13 @@ class Mocap():
             global_pnts.append(Vh[3,0:3]/Vh[3,3])
         return global_pnts
 
-    # def calcTransformationMatrix(self, planar_control_pts, global_control_pts) -> np.NDArray:
-    #     """Calculates the transformation matrix for the camera system.
+    def setMarkerCoords(self, markers: list):
+        """Sets the coordinates of the marker property."""
+        for i in range(len(self.global_markers.keys())):
+            key = list(self.global_markers.keys())[i]
+            self.global_markers[key]['coords'] = markers[i]
 
-    #     The transformation matrix `P` maps all the points from `global_control_pts` to the equivalent
-    #     points in `planar_control_pts`. After being calculated, assuming the cameras are not moved from
-    #     their calibrated positions, global points can be calculated as `np.linalg(P, x)`, where `x` is
-    #     a vector of the planar position coordinates.
-        
-    #     Parameters
-    #     ----------
-    #     planar_control_pts : 1xn vector of 1x2 vectors, where each subvector is an planar point 
-    #         with coordinates (u, v)
-    #     global_control_pts : 1xn vector of 1x3 vectors, where each subvector is a global point
-    #         with coordinates (u, v, w). The point at each index must pair with the similar point
-    #         in planar_control_pts
-
-    #     Notes
-    #     -----
-    #     1. The number of control points (the length of `planar_control_pts` and `global_control_pts`, 
-    #     n) must be at least 6.
-    #     1. The control points cannot lie in the same plane (to avoid a singular system decomposition).
-    #     """
-    #     for c in range(self.num_cameras):
-    #         # R = self.L9[c] * 
-    #         pass
-
-    # def global2planar(self, x, y, z) -> tuple:
-    #     """Transforms the global (3D) coordinates (x, y, z) to planar coordinants (u, v)."""
-    #     denom = self.L9 * x + self.L10 * y + self.L11 * z + 1
-    #     u = (self.L1 * x + self.L2 * y + self.L3 + self.L4) / denom
-    #     v = (self.L5 * x + self.L6 * y + self.L7 + self.L8) / denom
-    #     return u, v
-
-    def updateSkeleton(self, img_paths: list):
-        """Updates the skeleton (planar and global) points to the points found in the image.
-        
-        img_paths is a list of paths of size similar to planar_skeletons.
-        """
-        for planar_skeleton, img_path in zip(self.planar_skeletons, img_paths):
-            markers = self.getMarkerCoords(img_path, planar_skeleton)
-            # planar_skeleton = self.matchMarkersWithSkeleton(markers, planar_skeleton)
-            # self.displayMarkers(planar_skeleton, img_path)
-            # self.displayMarkers(markers, img_path)
-        self.global_skeleton = self.planar2global()
-        self.marker2skeleton(self.global_skeleton)
-        self.writeSequence2DB()
-
-    def marker2skeleton(self, markers: list):
-        for i in range(len(self.markers.keys())):
-            key = list(self.markers.keys())[i]
-            self.markers[key]['coords'] = markers[i]
-
-    def getMarkerCoords(self, img_path: str, prev_markers: list) -> list:
+    def updateMarkerCoords(self, marker: list):
         """Returns a list of planar coordinates for the brightest point around each 
         marker.
         
@@ -188,16 +160,13 @@ class Mocap():
         list : list of calculated points for each marker updating the position in 
             `prev_markers`. The size is the same as `prev_markers`.
         """
-        if prev_markers is None: 
-            prev_markers = self.getDefaultMarkers()
-        img = self.getImage(img_path)
+        camera = marker['camera']
+        img = self.getImage(camera)
         grayscale = self.makeGrayscale(img)
         blurred = self.blurImage(grayscale)
         new_markers = list()
-        for prev_marker in prev_markers:
-            new_marker = self.findBrightestPoint(blurred, prev_marker)
-            new_markers.append(new_marker)
-        return new_markers
+        for label, coord in marker.markers.items():
+            coord = self.findBrightestPoint(blurred, coord)
     
     def matchMarkersWithSkeleton(self, markers: list, prev_markers) -> dict:
         """Returns a dictionary where each skeleton point is matched with a discovered
@@ -232,14 +201,24 @@ class Mocap():
     def getDefaultMarkers(self) -> list:
         """Returns list of planar coordinates of the default markers for the saw in 
         resting position."""
-        uvs1 = [[761, 1231], [1061, 1354], [1343, 1360], [2162, 942], [1642, 618], [984, 15]]
-        uvs2 = [[1525, 668], [2102, 1028], [1054, 1503], [753, 1476], [627, 1341], [826, 29]]
-        return uvs1, uvs2
+        labels = ['base_1', 'base_2', 'miter_1', 'bevel_1', 'arm_1', 'arm_2']
+        coord = [[[761, 1231], [1061, 1354], [1343, 1360], [2162, 942], [1642, 618], [984, 15]],
+                 [[1525, 668], [2102, 1028], [1054, 1503], [753, 1476], [627, 1341], [826, 29]]]
+        out = list()
+        for i in range(2):
+            markers = dict()
+            for j in range(len(labels)):
+                markers[labels[j]] = coord[i][j]
+            out.append(dict(
+                markers = markers,
+                camera = self.cameras[i]
+            ))
+        return out
 
-    def getImage(self, img_path):
+    def getImage(self, camera: cv.VideoCapture):
         """Returns the image at the filepath as an array_like object."""
-        img = cv.imread(img_path)
-        return img
+        img = camera.read()
+        return img[1]
     
     def makeGrayscale(self, img):
         """Removes color in the image leaving only shades of black, grey, and white."""
@@ -348,7 +327,7 @@ class Mocap():
 
         self.db.addEntry(mocapseq_table, [seq_pk], [self.db.name.MOCAPSEQ_TBL_COLS[0]])
 
-        for marker in self.markers.values():
+        for marker in self.global_markers.values():
             mkr_pk = marker['pk']
             coords = marker['coords']
             for i, coord_label in enumerate(labels):
@@ -357,7 +336,7 @@ class Mocap():
                         [coord_label, value, seq_pk, mkr_pk], 
                         self.db.name.MOCAP_TBL_COLS[1:])
 
-    def writeMarkers2DB(self, marker_labels: list):
+    def setupMarkers(self, marker_labels: list):
         """Adds the given markers to the Database and updates the class memory."""
         table_name = self.db.name.MOCAPMKR_TBL_NAME
         pk = self.db.getMaxPrimaryKey(table_name) + 1
@@ -367,10 +346,10 @@ class Mocap():
             if l not in extant_labels:
                 self.db.addEntry(table_name, [pk, l], self.db.name.MOCAPMKR_TBL_COLS)
                 pk += 1
-                self.markers[l] = dict(pk=pk, coords=[0]*3)
+                self.global_markers[l] = dict(pk=pk, coords=[0]*3)
             else:
                 db_pk = db_markers[extant_labels.index(l)][0]
-                self.markers[l] = dict(pk=db_pk, coords=[0]*3)
+                self.global_markers[l] = dict(pk=db_pk, coords=[0]*3)
 
 
 
