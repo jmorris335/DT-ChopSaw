@@ -16,8 +16,10 @@
 
 import numpy as np
 import cv2 as cv
+import threading
 
 from src.mocap.calibration import calibrateCameraIntrinsic, stereoCalibration
+from src.mocap.camera_interface import VideoInterface
 from src.auxiliary.geometry import pointDistance
 from src.db.actor import DBActor
 
@@ -28,7 +30,15 @@ class Mocap():
         Accessed 4 Mar 2024. http://www.kwon3d.com/theory/dlt/dlt.html
     """
 
-    def __init__(self, camera1, camera2):
+    class Marker:
+        """Container class for marker points."""
+        __slots__ = ("label", "planar_coords", "global_coord", "camera")
+        def __init__(self, label: str, planar_coords: list, global_coord: tuple, camera=None):
+            self.label = label
+            self.planar_coords = planar_coords
+            self.global_coord = global_coord
+
+    def __init__(self, camera1, camera2, projection_mtrcs: list=None, calib_frames=None):
         """
         Parameters
         ----------
@@ -53,15 +63,41 @@ class Mocap():
             cv.VideoCapture(camera1),
             cv.VideoCapture(camera2)
         ]
-        self.is_calibrated = False
-        self.calibrate()
 
+        # Make sure camera is calibrated
+        if projection_mtrcs is None:
+            self.is_calibrated = False
+            if calib_frames is None:
+                calib_frames = self.getCalibrationFrames()
+            self.calibrate(*calib_frames)
+        else:
+            self.is_calibrated = True
+            
         self.db = DBActor()
         self.planar_markers = self.getDefaultMarkers()
         self.global_markers = dict()
         self.setupMarkers(['base_1', 'base_2', 'miter_1', 'bevel_1', 'arm_1', 'arm_2'])
 
-    def calibrate(self, imgs_A: list, imgs_B: list, 
+    def __del__(self):
+        for cam in self.cameras:
+            cam.release()
+
+    def getCalibrationFrames(camera_ids: list=[0, 1]):
+        """Opens cameras and collects calibration images."""
+        dir_path = "src/mocap/media"
+        num_frames = 12
+        vi = VideoInterface([0, 1], dir_path=dir_path)
+        vi.getCalibrationFrames()
+        calib_frames = [
+            [f"{dir_path}/calib/cam01_{i}.png" for i in range(num_frames)],
+            [f"{dir_path}/calib/cam02_{i}.png" for i in range(num_frames)]
+        ]
+        return calib_frames
+
+    def recordSynchedVideos(self):
+        pass
+
+    def calibrate(self, calib_img_paths: list, 
                   num_rows: int=4, num_cols: int=7, square_size: float=2.5):
         """Calibrates the class for according to a calibration object for use in arbitrary
         coordination.
@@ -75,16 +111,13 @@ class Mocap():
         """
         cameras = ["A", "B"]
         cam_mtrxs, cam_dist_coeffs = list(), list()
-        for camera in cameras:
-            # mono_img_paths = [f"src/mocap/test-mocap/{camera}_calib_{i+1}.jpg" for i in range(9)]
-            mono_img_paths = [f"src/mocap/temugeB_demo/frames/mono_calib/camera{camera}_{i}.png" for i in range(4)]
-            calib_consts = calibrateCameraIntrinsic(mono_img_paths, num_rows, num_cols, square_size, show_images=False)
+        for imgs in calib_img_paths:
+            calib_consts = calibrateCameraIntrinsic(imgs, num_rows, num_cols, 
+                                                    square_size, show_images=False)
             cam_mtrxs.append(calib_consts['camera_matrix'])
             cam_dist_coeffs.append(calib_consts['dist_coeffs'])
     
-        stereo_img_paths_A = [f"src/mocap/temugeB_demo/frames/synched/cameraA_{i}.png" for i in range(4)]
-        stereo_img_paths_B = [f"src/mocap/temugeB_demo/frames/synched/cameraB_{i}.png" for i in range(4)]
-        rmse, R, T = stereoCalibration(stereo_img_paths_A, stereo_img_paths_B, *cam_mtrxs, *cam_dist_coeffs, 
+        rmse, R, T = stereoCalibration(*calib_img_paths[:2], *cam_mtrxs, *cam_dist_coeffs, 
                       num_rows, num_cols, square_size, show_images=False)
 
         self.projection_mtrxs = list()
@@ -96,11 +129,11 @@ class Mocap():
         P2 = R @ RT2 #projection matrix for C2
         self.projection_mtrxs.append(P2)
 
+        self.is_calibrated = True
+
+    ## Homography Algorithms
     def updateMarkers(self):
-        """Updates the marker points to the points found in the image.
-        
-        img_paths is a list of paths of size similar to planar_skeletons.
-        """
+        """Updates the marker points to the points found in the image."""
         
         for marker in self.planar_markers:
             self.updateMarkerCoords(marker)
@@ -112,6 +145,17 @@ class Mocap():
         pass
 
     def planar2global(self, markers1, markers2) -> tuple:
+        u_pnts = np.array([markers1['markers'][i] for i in markers1['markers'].keys()]).T
+        v_pnts = np.array([markers2['markers'][i] for i in markers2['markers'].keys()]).T
+        global_pnts = list()
+
+        pm_A = self.projection_mtrxs[0]
+        pm_B = self.projection_mtrxs[1]
+
+        homogenous_3D_pts = cv.triangulatePoints(*self.projection_mtrxs, u_pnts, v_pnts)
+        return homogenous_3D_pts
+
+    # def planar2global_old(self, markers1, markers2) -> tuple:
         """Transforms the 2D point (u, v) from planar coordinates to global (3D) coordinants 
         (x, y, z) using Direct Linear Transformation.
 
@@ -128,21 +172,15 @@ class Mocap():
             pm_A = self.projection_mtrxs[0]
             pm_B = self.projection_mtrxs[1]
             A = [u[1]*pm_A[2,:] - pm_A[1,:],
-                 pm_A[0,:]      - u[0]*pm_A[2,:],
-                 v[1]*pm_B[2,:] - pm_B[1,:],
-                 pm_B[0,:]      - v[0]*pm_B[2,:]]
+                pm_A[0,:]      - u[0]*pm_A[2,:],
+                v[1]*pm_B[2,:] - pm_B[1,:],
+                pm_B[0,:]      - v[0]*pm_B[2,:]]
             A = np.array(A).reshape((4,4))
         
             B = A.transpose() @ A
             U, s, Vh = np.linalg.svd(B, full_matrices = False)
             global_pnts.append(Vh[3,0:3]/Vh[3,3])
         return global_pnts
-
-    def setMarkerCoords(self, markers: list):
-        """Sets the coordinates of the marker property."""
-        for i in range(len(self.global_markers.keys())):
-            key = list(self.global_markers.keys())[i]
-            self.global_markers[key]['coords'] = markers[i]
 
     def updateMarkerCoords(self, marker: list):
         """Returns a list of planar coordinates for the brightest point around each 
@@ -220,6 +258,7 @@ class Mocap():
         img = camera.read()
         return img[1]
     
+    ## Image Processing
     def makeGrayscale(self, img):
         """Removes color in the image leaving only shades of black, grey, and white."""
         out = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
@@ -319,6 +358,13 @@ class Mocap():
         cv.imshow("Marker Positioning", frame)
         cv.waitKey(0)
         cv.destroyAllWindows()
+
+    ## Writing
+    def setMarkerCoords(self, markers: list):
+        """Sets the coordinates of the marker property."""
+        for i in range(len(self.global_markers.keys())):
+            key = list(self.global_markers.keys())[i]
+            self.global_markers[key]['coords'] = markers[i]
 
     def writeSequence2DB(self, labels: list=['x', 'y', 'z']):
         """Writes a sequence of marker coordinates to the Database."""

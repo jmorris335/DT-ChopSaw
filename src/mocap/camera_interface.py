@@ -1,64 +1,126 @@
+"""
+| File: camera_interface.py 
+| Info: Presents class that abstracts interfacing with a camera using OpenCV
+| Author: John Morris, jhmrrs@clemson.edu  
+| Organization: Product Lifecycle Management Center at Clemson University, plmcenter@clemson.edu  
+| Permission: Copyright (C) 2023, John Morris. All rights reserved. Should not be reproduced, edited, sourced, or utilized without written permission from the author or organization
+
+| Version History:
+| - 0.0, 26 Apr 2024: Initialized
+"""
+
 import cv2 as cv
 
-DIR_PATH = "src/mocap/synch_saw_22Apr/"
-FILETYPE = '.mp4'
-FOURCC = cv.VideoWriter_fourcc(*'mp4v')
+class VideoInterface:
+    """
+    Abstracts interfacing with two cameras for stereographic imaging using the 
+    OpenCV library.
 
-name_chair = DIR_PATH + "Saw_Synch_01" + FILETYPE
-name_monit = DIR_PATH + "Saw_Synch_02" + FILETYPE
-cap_monit = cv.VideoCapture(2)
-cap_chair = cv.VideoCapture(1)
-frame_width = int(cap_monit.get(3))
-frame_height = int(cap_chair.get(4))
+    Parameters
+    ----------
+    camera_ids : list
+        List of ids for each camera, where each entry is (int | str | 
+        cv.VideoCap[ture]). If the camera is a USB camera, then the id is passed 
+        as an int (usually 0 or 1). If the camera id is a video file, then the 
+        path to the file should be passed as a string. The id can also be a 
+        previously setup VideoCapture class.
+    dir_path : str, default='src/mocap/media'
+        The directory where video frames should be written to.
+    fourcc : str, default='mp4v'
+        The 4 character code for the video codec (encoder/decoder) to be used.
+    filetype : str, default='mp4'
+        String for the filetype for a encoded video, as in `movie.<filetype>`.
+    framerate : float, default=20.0
+        Frame rate (frames/second) of the encoded video.
+    """
+    def __init__(self, camera_ids: list, dir_path: str= "src/mocap/media", 
+                 fourcc: str='mp4v', filetype: str='mp4', framerate: float=20.0):
+        num_cams = len(camera_ids)
+        self.dir_path = dir_path
+        FOURCC = cv.VideoWriter_fourcc(*fourcc)
 
+        self.vcs = list()
+        for id in camera_ids:
+            if isinstance(id, cv.VideoCapture):
+                self.vcs.append(id)
+            else:
+                self.vcs.append(cv.VideoCapture(id))
 
-out_chair = cv.VideoWriter(name_chair, FOURCC, 20, (frame_width, frame_height))
-out_monit = cv.VideoWriter(name_monit, FOURCC, 20, (frame_width, frame_height))
+        frame_dims = [[int(vc.get(i)) for i in [3, 4]] for vc in self.vcs]
+        names = [self.dir_path + '/saw_synch_' + str(i) + '.' + filetype for i in range(num_cams)]
+        self.vws = [cv.VideoWriter(names[i], FOURCC, framerate, (frame_dims[i][0],
+                                   frame_dims[i][1])) for i in range(num_cams)]
 
-# i = 0
-# while True:
-#     r_c, f_c = cap_chair.read()
-#     r_m, f_m = cap_monit.read()
+    def __del__(self):
+        for vc in self.vcs:
+            vc.release()
+        for vw in self.vws:
+            vw.release()
+        cv.destroyAllWindows()
 
-#     if r_c and r_m:
-#         f_c = cv.flip(f_c, 1)
-#         f_m = cv.flip(f_m, 1)
-#         cv.imshow('frame_chair', f_c)
-#         cv.imshow('frame_monitor', f_m)
+    def getCalibrationFrames(self, num_frames: int=10):
+        """Records 10 frames (after user input) for use in camera calibration.
+        
+        Each frame should include a chessboard grid.
+        """
+        frames_taken = 0
+        while self.camerasOpen() and (frames_taken < num_frames):
+            framesRead, frames = self.readFrames()
 
-#         k = cv.waitKey(1)
-#         if k%256 == 27:
-#             # ESC pressed
-#             print("Escape hit, closing...")
-#             break
-#         elif k%256 == 32:
-#             # SPACE pressed
-#             cv.imwrite(DIR_PATH + f'calib/cam01_{i}.png', f_c)
-#             cv.imwrite(DIR_PATH + f'calib/cam02_{i}.png', f_m)
-#             print(f'Wrote image {i}')
-#             i += 1
+            while all(framesRead) and (frames_taken < num_frames):
+                self.flipFrames(frames)
+                msg = f'Sequence {frames_taken + 1} / {num_frames}; Press spacebar to capture, press any other key to retake.' 
+                self.placeMessage(frames[0], msg)
+                self.showFrames(frames)
 
-frames_ctr = 0
-while(cap_chair.isOpened() and cap_monit.isOpened()):
-    ret_c, frame_c = cap_chair.read()
-    ret_m, frame_m = cap_monit.read()
+                k = cv.waitKey(0)
+                if k % 256 == 32: # SPACEBAR pressed
+                    for frame in frames:
+                        cv.imwrite(self.dir_path + f'/calib/cam{frames.index(frame)}_{frames_taken+1}.png', frame)
+                    frames_taken += 1
+                else:
+                    break
 
-    if ret_c==True and ret_m == True:
-        frame_c, frame_m = cv.flip(frame_c,1), cv.flip(frame_m,1)
-        frames_ctr += 1
-        cv.imshow('frame_chair',frame_c)
-        cv.imshow('frame_monitor',frame_m)
-        out_chair.write(frame_c)
-        out_monit.write(frame_m)
+    def writeVideoStream(self):
+        keyval = 0
+        while(self.camerasOpen() and (keyval % 256) != 32): #Press spacebar to quit
+            framesRead, frames = self.readFrames()
 
-        if (cv.waitKey(1) & 0xFF == ord('q')):
-            break
+            if all(framesRead):
+                self.flipFrames(frames)
+                self.showFrames(frames)
+                for vw, frame in zip(self.vws, frames):
+                    vw.write(frame)
+            else:
+                break
 
-    else:
-        break
+            k = cv.waitKey(1)
 
-cap_chair.release()
-cap_monit.release()
-out_monit.release()
-out_chair.release()
-cv.destroyAllWindows()
+    def placeMessage(self, frame, message: str, origin: tuple=(50, 50), 
+                     fontFace=cv.FONT_HERSHEY_DUPLEX, fontScale: float=0.75, 
+                     color=(255,150,100), thickness: int=2, lineType=cv.LINE_AA):
+        """Places the text in `message` on the plot. Wrapper for `cv.putText()`"""
+        cv.putText(frame, message, origin, fontFace, fontScale, color, thickness, lineType) 
+    
+    def readFrames(self):
+        """Reads the frames from all cameras in the class."""
+        readFrames, frames = [a for a in zip(*[vc.read() for vc in self.vcs])]
+        return readFrames, frames
+
+    def camerasOpen(self):
+        """Returns true if all cameras are open."""
+        return all([vc.isOpened() for vc in self.vcs])
+    
+    def flipFrames(self, frames, direction: int=1):
+        """Flips all frames along the specified direction."""
+        frames = [cv.flip(frame, direction) for frame in frames]
+        return frames
+    
+    def showFrames(self, frames):
+        """Shows each frame. Wrapper for `cv.imshow`"""
+        for frame in frames:
+            cv.imshow(f'Camera {frames.index(frame)}', frame)
+
+if __name__ == '__main__':
+    VI = VideoInterface([0], "src/mocap/dev-mocap/test")
+    VI.getCalibrationFrames(2)
