@@ -16,6 +16,8 @@
 
 import numpy as np
 import cv2 as cv
+import logging as log
+import time
 import threading
 
 from src.mocap.calibration import calibrateCameraIntrinsic, stereoCalibration
@@ -23,22 +25,60 @@ from src.mocap.camera_interface import VideoInterface
 from src.auxiliary.geometry import pointDistance
 from src.db.actor import DBActor
 
+log.basicConfig(level=log.DEBUG)
+
 class Mocap():
-    """Performs linear transformations of planar points into 3D space.
-
-    Source: Kwon, Y. (1998). Direct Linear Transformation. Kwon3D. 
-        Accessed 4 Mar 2024. http://www.kwon3d.com/theory/dlt/dlt.html
-    """
-
+    """Performs linear transformations of planar points into 3D space."""
     class Marker:
-        """Container class for marker points."""
-        __slots__ = ("label", "planar_coords", "global_coord", "camera")
-        def __init__(self, label: str, planar_coords: list, global_coord: tuple, camera=None):
+        __slots__ = ("label", "planar_coords", "global_coord", "db_key")
+        def __init__(self, label: str, planar_coords: list, global_coord: tuple, db_key: int=None):
+            """Container class for marker points.
+            
+            Parameters
+            ----------
+            label : str
+                The label for the marker
+            planar_coords : list
+                A 2x2 array of 1x2 tuples of floats representing the coordinate 
+                points for the marker in the camera plane. This is of the form 
+                `[(x1, y1), (x2, y2)]`.
+            global_coord : tuple
+                A 3x1 tuple representing the marker's coordinates in Euclidean 
+                geometry
+            db_key : int
+                The database key for the marker
+            """
             self.label = label
+            self.db_key = db_key
             self.planar_coords = planar_coords
             self.global_coord = global_coord
 
-    def __init__(self, camera1, camera2, projection_mtrcs: list=None, calib_frames=None):
+        def planar2global(self, projection_mtrxs: list) -> tuple:
+            """Triangulates the 3D coordinates from the two 2D coordinates."""
+            points2D = np.array(self.planar_coords, 'float').T
+            points4D = cv.triangulatePoints(*projection_mtrxs[:2], *points2D[:2])
+            points3D = points4D[:3] / points4D[-1]
+            self.global_coord = tuple(points3D.T[0])
+            return points4D[:3]
+
+            # self.global_coord = self.DLT(*projection_mtrxs, *self.planar_coords)
+        
+        @staticmethod
+        def DLT(P1, P2, point1, point2):
+            A = [point1[1]*P1[2,:] - P1[1,:],
+                P1[0,:] - point1[0]*P1[2,:],
+                point2[1]*P2[2,:] - P2[1,:],
+                P2[0,:] - point2[0]*P2[2,:]
+                ]
+            A = np.array(A).reshape((4,4))
+        
+            B = A.transpose() @ A
+            U, s, Vh = np.linalg.svd(B, full_matrices = False)
+
+            global_coord = Vh[3,0:3]/Vh[3,3]
+            return global_coord
+
+    def __init__(self, camera1, camera2, projection_mtrxs: list=None, calib_frames=None):
         """
         Parameters
         ----------
@@ -46,18 +86,9 @@ class Mocap():
             Either a filepath to a video stream or the camera ID.
         camera2 : str | int
             Same as `camera1` for the second camera.
-
-        Class Members
-        -------------
-        planar_markers : list
-            A list (length equal to `num_cameras`) of planar coordinates of each skeleton point
-            in the coordinate system of the camera.
-        global_markers : dict
-            A dictionary of markers where the key is the marker label (such as 'base_1'). Each
-            value is a sub-dictionary with the following key-value pairs:
-                pk : int, the primary key of the marker in the database.
-                coords : array_like, an array of length 3 representing x, y, and z coordinates 
-                    of the marker
+        projection_mtrcs : list, Optional
+            A list of projection matrices (3x4)
+       
         """
         self.cameras = [
             cv.VideoCapture(camera1),
@@ -65,22 +96,42 @@ class Mocap():
         ]
 
         # Make sure camera is calibrated
-        if projection_mtrcs is None:
+        if projection_mtrxs is None:
             self.is_calibrated = False
             if calib_frames is None:
                 calib_frames = self.getCalibrationFrames()
-            self.calibrate(*calib_frames)
+            self.calibrate(calib_frames)
         else:
+            self.projection_mtrxs = projection_mtrxs
             self.is_calibrated = True
             
+        # Initialize Database
         self.db = DBActor()
-        self.planar_markers = self.getDefaultMarkers()
-        self.global_markers = dict()
-        self.setupMarkers(['base_1', 'base_2', 'miter_1', 'bevel_1', 'arm_1', 'arm_2'])
+        self.markers = self.getDefaultMarkers()
+        self.setupMarkerDB(['base_1', 'base_2', 'miter_1', 'bevel_1', 'arm_1', 'arm_2'])
 
     def __del__(self):
         for cam in self.cameras:
             cam.release()
+
+    def start(self):
+        """Begins motion capture process."""
+        frame_counter = 0
+        while all([cam.isOpened() for cam in self.cameras]):
+            log.debug(f"Processing frame {frame_counter}")
+            self.mocapProcess()
+            frame_counter += 1
+
+    def getMarker(self, label: str) -> Marker:
+        """Returns the marker at the given label."""
+        for m in self.markers:
+            if m.label == label:
+                return m
+        raise Exception(f'Label "{label}" not found in marker list.')
+    
+    def getCamIdx(self, cam) -> int:
+        """Returns the index of the camera for the class."""
+        return self.cameras.index(cam)
 
     def getCalibrationFrames(camera_ids: list=[0, 1]):
         """Opens cameras and collects calibration images."""
@@ -94,9 +145,6 @@ class Mocap():
         ]
         return calib_frames
 
-    def recordSynchedVideos(self):
-        pass
-
     def calibrate(self, calib_img_paths: list, 
                   num_rows: int=4, num_cols: int=7, square_size: float=2.5):
         """Calibrates the class for according to a calibration object for use in arbitrary
@@ -104,21 +152,19 @@ class Mocap():
         
         Paramters
         ---------
-        imgs_A : list
-            A list of filepaths to a calibration image. Each image must contain a chessboard grid.
-        imgs_B : list
-            Same as A but for the second camera.
         """
-        cameras = ["A", "B"]
         cam_mtrxs, cam_dist_coeffs = list(), list()
         for imgs in calib_img_paths:
             calib_consts = calibrateCameraIntrinsic(imgs, num_rows, num_cols, 
                                                     square_size, show_images=False)
+            
+            log.debug(f"Camera {calib_img_paths.index(imgs)} RMSE: {calib_consts['rmse']}")
             cam_mtrxs.append(calib_consts['camera_matrix'])
             cam_dist_coeffs.append(calib_consts['dist_coeffs'])
     
         rmse, R, T = stereoCalibration(*calib_img_paths[:2], *cam_mtrxs, *cam_dist_coeffs, 
                       num_rows, num_cols, square_size, show_images=False)
+        log.debug(f"Stereo calibration RMSE: {rmse}")
 
         self.projection_mtrxs = list()
         RT1 = np.concatenate([np.eye(3), [[0],[0],[0]]], axis = -1)
@@ -130,135 +176,73 @@ class Mocap():
         self.projection_mtrxs.append(P2)
 
         self.is_calibrated = True
-
-    ## Homography Algorithms
-    def updateMarkers(self):
-        """Updates the marker points to the points found in the image."""
-        
-        for marker in self.planar_markers:
-            self.updateMarkerCoords(marker)
-        self.global_coords = self.planar2global(*self.planar_markers)
-        self.setMarkerCoords(self.global_coords)
-        self.writeSequence2DB()
-
-    def tagMarkers(self, markers):
-        pass
-
-    def planar2global(self, markers1, markers2) -> tuple:
-        u_pnts = np.array([markers1['markers'][i] for i in markers1['markers'].keys()]).T
-        v_pnts = np.array([markers2['markers'][i] for i in markers2['markers'].keys()]).T
-        global_pnts = list()
-
-        pm_A = self.projection_mtrxs[0]
-        pm_B = self.projection_mtrxs[1]
-
-        homogenous_3D_pts = cv.triangulatePoints(*self.projection_mtrxs, u_pnts, v_pnts)
-        return homogenous_3D_pts
-
-    # def planar2global_old(self, markers1, markers2) -> tuple:
-        """Transforms the 2D point (u, v) from planar coordinates to global (3D) coordinants 
-        (x, y, z) using Direct Linear Transformation.
-
-        Inputs are 2x1 array_like. Output is 3x2 array_like.
-        
-        #TODO: This is copied from temugeB as a placeholder, it needs to be reviewed and replaced.
-        Currently returns the 3D coordinates for a point triangulated between 2 planar coordinate systems
-        with given projection matrices. It also only works for 2 cameras."""
-        u_pnts = [markers1['markers'][i] for i in markers1['markers'].keys()]
-        v_pnts = [markers2['markers'][i] for i in markers2['markers'].keys()]
-        global_pnts = list()
-
-        for u, v in zip(u_pnts, v_pnts):
-            pm_A = self.projection_mtrxs[0]
-            pm_B = self.projection_mtrxs[1]
-            A = [u[1]*pm_A[2,:] - pm_A[1,:],
-                pm_A[0,:]      - u[0]*pm_A[2,:],
-                v[1]*pm_B[2,:] - pm_B[1,:],
-                pm_B[0,:]      - v[0]*pm_B[2,:]]
-            A = np.array(A).reshape((4,4))
-        
-            B = A.transpose() @ A
-            U, s, Vh = np.linalg.svd(B, full_matrices = False)
-            global_pnts.append(Vh[3,0:3]/Vh[3,3])
-        return global_pnts
-
-    def updateMarkerCoords(self, marker: list):
-        """Returns a list of planar coordinates for the brightest point around each 
-        marker.
-        
-        Parameters
-        ----------
-        img_path : str
-            Filepath for image to decode markers from.
-        prev_markers : list
-            2D list of planar coordinates for all markers previously identified.
-
-        Returns
-        -------
-        list : list of calculated points for each marker updating the position in 
-            `prev_markers`. The size is the same as `prev_markers`.
-        """
-        camera = marker['camera']
-        img = self.getImage(camera)
-        grayscale = self.makeGrayscale(img)
-        blurred = self.blurImage(grayscale)
-        new_markers = list()
-        for label, coord in marker.markers.items():
-            coord = self.findBrightestPoint(blurred, coord)
+        log.info("Calibrated cameras")
     
-    def matchMarkersWithSkeleton(self, markers: list, prev_markers) -> dict:
-        """Returns a dictionary where each skeleton point is matched with a discovered
-        marker point.
-
-        Parameters
-        ----------
-        markers : list
-            A list of possible coordinates for each skeleton point. Must be of equal or greater 
-            length than `self.planar_skeleton`.
-
-        Returns
-        -------
-        dict : Dictionary where each key is a planar skeleton point (tuple) corresponding to the matched
-            marker.
-
-        Raises
-        ------
-        Exception
-        """
-        if len(markers) < len(prev_markers): 
-            raise ValueError(f"Not enough markers ({len(markers)}) to match with Skeleton ({len(prev_markers)}).")
-        matches = list()
-        #Find which marker is closest to a skeleton point
-        for p_sk in prev_markers:
-            d = [pointDistance(p_sk, m) for m in markers]
-            marker = markers[d.index(min(d))]
-            matches.append(marker)
-            markers.remove(marker)
-        return matches
-
     def getDefaultMarkers(self) -> list:
         """Returns list of planar coordinates of the default markers for the saw in 
         resting position."""
         labels = ['base_1', 'base_2', 'miter_1', 'bevel_1', 'arm_1', 'arm_2']
         coord = [[[761, 1231], [1061, 1354], [1343, 1360], [2162, 942], [1642, 618], [984, 15]],
                  [[1525, 668], [2102, 1028], [1054, 1503], [753, 1476], [627, 1341], [826, 29]]]
-        out = list()
-        for i in range(2):
-            markers = dict()
-            for j in range(len(labels)):
-                markers[labels[j]] = coord[i][j]
-            out.append(dict(
-                markers = markers,
-                camera = self.cameras[i]
-            ))
-        return out
+        
+        markers = list()
+        for i in range(len(labels)):
+            markers.append(self.Marker(labels[i], [coord[0][i], coord[1][i]], (0,)*3))
+        return markers
 
+    def mocapProcess(self):
+        """Conducts a basic motion capture routine on the next available frame"""
+        new_coords = list()
+        for cam in self.cameras:
+            img = self.getImage(cam)
+            if img is None: return
+            new_coords.append(self.getCoordsInImage(img, self.getCamIdx(cam)))
+            self.writeImageToWebapp(img, cam, new_coords[self.getCamIdx(cam)])
+        self.assignCoordsToMarkers(new_coords)
+        for m in self.markers:
+            m.planar2global(self.projection_mtrxs)
+        seq = self.compileSequence()
+        self.writeSequence2DB(seq)
+        # db_thread = threading.Thread(target=self.writeSequence2DB, args=[seq], daemon=True)
+        # db_thread.start()
+
+    def writeImageToWebapp(self, img, camera, coords: list=None):
+        """Writes the image to the assets folder of the webapp."""
+        if coords is not None:
+            img = self.drawCoordinates(coords, img_frame=img)
+        img = cv.flip(img, 1)
+        cam_idx = self.getCamIdx(camera)
+        cv.imwrite(f"src/gui/assets/live_feed_cam{cam_idx}.png", img)
+
+    def getCoordsInImage(self, img, cam_idx: int=0) -> list:
+        """Returns coordinates for the brightest points in the image."""
+        grayscale = self.makeGrayscale(img)
+        blurred = self.blurImage(grayscale)
+        new_coords = list()
+        old_coords = [m.planar_coords[cam_idx] for m in self.markers]
+        for old_cord in old_coords:
+            new_coords.append(self.findBrightestPoint(blurred, old_cord))
+        return new_coords
+  
+    def assignCoordsToMarkers(self, new_coords: list):
+        """Assigns new coordinates to markers in class."""
+        #Find which marker is closest to a skeleton point
+        for cam in range(len(new_coords)):
+            unmatched_markers = [m for m in self.markers]
+            for pt in new_coords[cam]:
+                d = [pointDistance(pt, m.planar_coords[cam]) for m in unmatched_markers]
+                idx = d.index(min(d))
+                unmatched_markers[idx].planar_coords[cam] = pt
+                del(unmatched_markers[idx])
+
+    ## Image Processing
     def getImage(self, camera: cv.VideoCapture):
         """Returns the image at the filepath as an array_like object."""
         img = camera.read()
+        if not img[0]:
+            camera.release()
         return img[1]
     
-    ## Image Processing
     def makeGrayscale(self, img):
         """Removes color in the image leaving only shades of black, grey, and white."""
         out = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
@@ -300,10 +284,6 @@ class Mocap():
         (minVal, maxVal, minLoc, maxLoc) = cv.minMaxLoc(reduced_img)
         point = (limits[0] + maxLoc[0], 
                  limits[2] + maxLoc[1])
-        # cv.drawMarker(reduced_img, (maxLoc[0], maxLoc[1]), (0, 0, 255), cv.MARKER_DIAMOND, 20, 2, 1)
-        # cv.imshow("Brightest Point", reduced_img)
-        # cv.waitKey(0)
-        # cv.destroyAllWindows()
         return point
         
     def getRegionFromImage(self, img, point: tuple, dx: float=0.05, dy: float=None):
@@ -330,16 +310,16 @@ class Mocap():
         img = np.array(img)
         clipped_img = img[min_y : max_y, min_x : max_x]
         return clipped_img, (min_x, max_x, min_y, max_y)
-
-    def displayMarkers(self, marker_coords: list, img_path: str=None, img_frame=None):
-        """Displays the markers on the given image.
+    
+    def drawCoordinates(self, coords: list, img_path: str=None, img_frame=None):
+        """Draws the markers on the given image.
         
         Wrapper for `OpenCV.drawMarker` function. Either`img_path` and `img_frame` 
         must be passed to the function.
 
         Parameters
         ----------
-        marker_coords: list
+        coords: list
             List of (2x1) array_like pixel coordinates for each marker.
         img_path: str, Optional
             Filepath for the image to display the markers on.
@@ -352,38 +332,33 @@ class Mocap():
             raise(Exception("No image path or IOarray was passed to display markers"))
         else: frame = img_frame
 
-        for m in marker_coords:
-            cv.drawMarker(frame, m[:2], color=(0, 0, 255), 
-                          markerType=cv.MARKER_CROSS, markerSize=20, thickness=2)
+        for coord in coords:
+            cv.drawMarker(frame, coord[:2], color=(0, 0, 255), markerSize=20, markerType=cv.MARKER_CROSS, thickness=2)
+        return frame
+
+    def displayCoordinates(self, coords: list, img_path: str=None, img_frame=None):
+        """Displays the markers on the given image.
+        
+        Wrapper for `OpenCV.drawMarker` function. Either`img_path` and `img_frame` 
+        must be passed to the function.
+
+        Parameters
+        ----------
+        coords: list
+            List of (2x1) array_like pixel coordinates for each marker.
+        img_path: str, Optional
+            Filepath for the image to display the markers on.
+        img_frame: list, Optional
+            The read frame in the form of `cv.InputOutputArray`
+        """
+        frame = self.drawCoordinates(coords, img_path, img_frame)
         cv.imshow("Marker Positioning", frame)
         cv.waitKey(0)
         cv.destroyAllWindows()
 
-    ## Writing
-    def setMarkerCoords(self, markers: list):
-        """Sets the coordinates of the marker property."""
-        for i in range(len(self.global_markers.keys())):
-            key = list(self.global_markers.keys())[i]
-            self.global_markers[key]['coords'] = markers[i]
-
-    def writeSequence2DB(self, labels: list=['x', 'y', 'z']):
-        """Writes a sequence of marker coordinates to the Database."""
-        mocapseq_table = self.db.name.MOCAPSEQ_TBL_NAME
-        seq_pk = self.db.getMaxPrimaryKey(mocapseq_table) + 1
-
-        self.db.addEntry(mocapseq_table, [seq_pk], [self.db.name.MOCAPSEQ_TBL_COLS[0]])
-
-        for marker in self.global_markers.values():
-            mkr_pk = marker['pk']
-            coords = marker['coords']
-            for i, coord_label in enumerate(labels):
-                value = coords[i]
-                self.db.addEntry(self.db.name.MOCAP_TBL_NAME,
-                        [coord_label, value, seq_pk, mkr_pk], 
-                        self.db.name.MOCAP_TBL_COLS[1:])
-
-    def setupMarkers(self, marker_labels: list):
-        """Adds the given markers to the Database and updates the class memory."""
+    ## DB Methods
+    def setupMarkerDB(self, marker_labels: list):
+        """Adds the given markers to the Database and updates the class variable."""
         table_name = self.db.name.MOCAPMKR_TBL_NAME
         pk = self.db.getMaxPrimaryKey(table_name) + 1
         db_markers = self.db.getEntries(table_name)
@@ -392,14 +367,40 @@ class Mocap():
             if l not in extant_labels:
                 self.db.addEntry(table_name, [pk, l], self.db.name.MOCAPMKR_TBL_COLS)
                 pk += 1
-                self.global_markers[l] = dict(pk=pk, coords=[0]*3)
+                self.getMarker(l).db_key = pk
             else:
                 db_pk = db_markers[extant_labels.index(l)][0]
-                self.global_markers[l] = dict(pk=db_pk, coords=[0]*3)
+                self.getMarker(l).db_key = db_pk
 
+    def compileSequence(self, labels: list=['x', 'y', 'z']) -> list:
+        """Compiles a sequence based on current markers to write to the database.
+        
+        A sequence is a list of the global coordinates for each marker at a 
+        specific timestamp. This function the sequence as a list of dictionaries,
+        where each dict links the variable name, the coordinate value, and the 
+        db key for the marker.
+        """
+        seq = list()
+        for marker in self.markers:
+            coords = marker.global_coord
 
+            for i, label in enumerate(labels):
+                value = float(coords[i])
+                seq.append({'label' : label, 
+                            'value' : value, 
+                            'mkr_key' : marker.db_key})
+        return seq
 
+    def writeSequence2DB(self, seqs: list):
+        """Writes a sequence of marker coordinates to the Database."""
+        mocapseq_table = self.db.name.MOCAPSEQ_TBL_NAME
+        seq_pk = self.db.getMaxPrimaryKey(mocapseq_table) + 1
 
+        self.db.addEntry(mocapseq_table, [seq_pk], [self.db.name.MOCAPSEQ_TBL_COLS[0]])
 
-    
-
+        tbl_name = self.db.name.MOCAP_TBL_NAME
+        col_names = self.db.name.MOCAP_TBL_COLS[1:]
+        for seq in seqs:
+            values = [seq['label'], seq['value'], seq_pk, seq['mkr_key']]
+            self.db.addEntry(tbl_name, values, col_names)
+ 
