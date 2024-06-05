@@ -29,9 +29,9 @@ fig__saw_live = go.Figure(data=[go.Scatter3d(
     line= dict(width = 20))])
 fig__saw_live.update_layout(
     scene = dict(
-        xaxis = dict(nticks=4, range=[-150,0],),
-        yaxis = dict(nticks=4, range=[-150,0],),
-        zaxis = dict(nticks=4, range=[-0,100],),
+        xaxis = dict(nticks=4, range=[-150,50],),
+        yaxis = dict(nticks=4, range=[0,500],),
+        zaxis = dict(nticks=4, range=[-60,150],),
         aspectmode='manual',
         aspectratio=dict(x=1, y=1, z=1)),
     margin=dict(r=20, l=10, b=10, t=10))

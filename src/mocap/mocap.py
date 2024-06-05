@@ -53,30 +53,27 @@ class Mocap():
             self.planar_coords = planar_coords
             self.global_coord = global_coord
 
-        def planar2global(self, projection_mtrxs: list) -> tuple:
+        def planar2global(self, camera_mtrx: list, projection_mtrxs: list, dist_coeffs: list) -> tuple:
+            # points1 is a (N, 1, 2) float32
+            points1 = np.array(self.planar_coords[0], 'float32')
+            points2 = np.array(self.planar_coords[1], 'float32')
+
+            points1u = cv.undistortPoints(points1, camera_mtrx[0], dist_coeffs[0], None, camera_mtrx[0])
+            points2u = cv.undistortPoints(points2, camera_mtrx[1], dist_coeffs[1], None, camera_mtrx[1])
+
+            points4d = cv.triangulatePoints(projection_mtrxs[0], projection_mtrxs[1], points1u, points2u)
+            T_w = [[1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]]
+            points4d = T_w @ points4d
+            points3d = (points4d[:3, :]/points4d[3, :]).T
+            self.global_coord = tuple(points3d[0])
+
+        def planar2globalOLD(self, projection_mtrxs: list) -> tuple:
             """Triangulates the 3D coordinates from the two 2D coordinates."""
             points2D = np.array(self.planar_coords, 'float').T
             points4D = cv.triangulatePoints(*projection_mtrxs[:2], *points2D[:2])
             points3D = points4D[:3] / points4D[-1]
             self.global_coord = tuple(points3D.T[0])
             return points4D[:3]
-
-            # self.global_coord = self.DLT(*projection_mtrxs, *self.planar_coords)
-        
-        @staticmethod
-        def DLT(P1, P2, point1, point2):
-            A = [point1[1]*P1[2,:] - P1[1,:],
-                P1[0,:] - point1[0]*P1[2,:],
-                point2[1]*P2[2,:] - P2[1,:],
-                P2[0,:] - point2[0]*P2[2,:]
-                ]
-            A = np.array(A).reshape((4,4))
-        
-            B = A.transpose() @ A
-            U, s, Vh = np.linalg.svd(B, full_matrices = False)
-
-            global_coord = Vh[3,0:3]/Vh[3,3]
-            return global_coord
 
     def __init__(self, camera1, camera2, projection_mtrxs: list=None, calib_frames=None):
         """
@@ -144,8 +141,23 @@ class Mocap():
             [f"{dir_path}/calib/cam02_{i}.png" for i in range(num_frames)]
         ]
         return calib_frames
+    
+    def calibrate(self, calibration_imgs):
+        calib1 = calibrateCameraIntrinsic(calibration_imgs[0], 4, 7, 2.5, False)
+        calib2 = calibrateCameraIntrinsic(calibration_imgs[1], 4, 7, 2.5, False)
+        mtx1 = calib1['camera_matrix']
+        mtx2 = calib2['camera_matrix']
+        dist1 = calib1['dist_coeffs']
+        dist2 = calib2['dist_coeffs']
+        rmse, R, T = stereoCalibration(*calibration_imgs, mtx1, mtx2, dist1, dist2, 4, 7, 2.5, False)
+        projMat1 = mtx1 @ cv.hconcat([np.eye(3), np.zeros((3,1))]) # Cam1 is the origin
+        projMat2 = mtx2 @ cv.hconcat([R, T]) # R, T from stereoCalibrate
 
-    def calibrate(self, calib_img_paths: list, 
+        self.projection_mtrxs = [projMat1, projMat2]
+        self.dist_coeffs = [dist1, dist2]
+        self.camera_mtrxs = [mtx1, mtx2]
+
+    def calibrateOld(self, calib_img_paths: list, 
                   num_rows: int=4, num_cols: int=7, square_size: float=2.5):
         """Calibrates the class for according to a calibration object for use in arbitrary
         coordination.
@@ -200,7 +212,7 @@ class Mocap():
             self.writeImageToWebapp(img, cam, new_coords[self.getCamIdx(cam)])
         self.assignCoordsToMarkers(new_coords)
         for m in self.markers:
-            m.planar2global(self.projection_mtrxs)
+            m.planar2global(self.camera_mtrxs, self.projection_mtrxs, self.dist_coeffs)
         seq = self.compileSequence()
         self.writeSequence2DB(seq)
         # db_thread = threading.Thread(target=self.writeSequence2DB, args=[seq], daemon=True)

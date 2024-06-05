@@ -53,7 +53,7 @@ class DBActor:
     def __init__(self):
         self.cnx = db.connectToDB()
         self.cnx.autocommit = True
-        self.csr = self.cnx.cursor()
+        self.csr = self.cnx.cursor(buffered=True)
         self.name = db_name
 
     def __del__(self):
