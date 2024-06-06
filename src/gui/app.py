@@ -1,3 +1,14 @@
+"""
+| File: app.py 
+| Info: Application interface for webapp, using Dash | Plotly
+| Author: John Morris, jhmrrs@clemson.edu  
+| Organization: Product Lifecycle Management Center at Clemson University, plmcenter@clemson.edu  
+| Permission: Copyright (C) 2023, John Morris. All rights reserved. Should not be reproduced, edited, sourced, or utilized without written permission from the author or organization
+
+| Version History:
+| - 0.0, ?? May 2024: Initialized
+"""
+
 from dash import Dash, dcc, html, Input, Output, State, Patch
 from dash.exceptions import PreventUpdate
 import plotly.graph_objects as go
@@ -7,6 +18,7 @@ import base64
 
 from src.db.actor import DBActor
 from src.db.db_names import *
+from src.gui.threeDplotter import makeCylinder
 
 log.basicConfig(level=log.DEBUG)
 
@@ -36,6 +48,9 @@ fig__saw_live.update_layout(
         aspectratio=dict(x=1, y=1, z=1)),
     margin=dict(r=20, l=10, b=10, t=10))
 
+cyl_surfaces = makeCylinder(0, 0, 0, 1, 5)
+fig__3D_saw_test = go.Figure(cyl_surfaces)
+
 img__live_feed1 = html.Img(
     id='img__livefeed1', 
     # src=LIVE_FEED1_PATH, 
@@ -49,13 +64,12 @@ img__live_feed2 = html.Img(
 app.layout = html.Div([
     html.H4('DWS780 Double Bevel Sliding Compound Miter Saw Digital Twin'),
     dcc.Store(id='store__saw_position', data=[getDummySequence()]),
-    # dcc.Loading(
-    dcc.Graph(id="graph", figure=fig__saw_live), 
-        # type='dot', color='#F56600'),
+    dcc.Graph(id="fig__saw_live", figure=fig__saw_live), 
+    dcc.Graph(id="fig__3D_saw_test", figure=fig__3D_saw_test),
     img__live_feed1,
     img__live_feed2,
-    dcc.Interval(id='data_request_intv', interval=2000),
-    dcc.Interval(id='plot_update_intv', interval=400),
+    dcc.Interval(id='intv__data_request', interval=2000),
+    dcc.Interval(id='intv__plot_update', interval=400),
     dcc.Interval(id='intv__live_feed', interval=2000)
 ])
 
@@ -71,9 +85,9 @@ def updateLiveFeed(n_intervals):
     return decoded_img1, decoded_img2
 
 @app.callback(
-    Output("graph", "extendData"), 
+    Output("fig__saw_live", "extendData"), 
     Output("store__saw_position", "data"),
-    Input("plot_update_intv", "n_intervals"),
+    Input("intv__plot_update", "n_intervals"),
     State("store__saw_position", "data"))
 def updateSawLive(n_intervals, pos_data):
     curr_time = current_time() - PLOT_DELAY
@@ -106,7 +120,7 @@ def removePlottedSequences(data: list, keep_seq_index: int):
 
 @app.callback(
     Output("store__saw_position", "data", allow_duplicate=True),
-    Input("data_request_intv", "n_intervals"),
+    Input("intv__data_request", "n_intervals"),
     State("store__saw_position", "data"),
     prevent_initial_call=True)
 def getSawPositionData(n_intervals, data: list):

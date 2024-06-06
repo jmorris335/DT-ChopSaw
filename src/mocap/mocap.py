@@ -119,9 +119,9 @@ class Mocap():
             The dimension of a single square on the checkerboard, in cm
         """
         calib = [calibCamIntrinsic(calib_imgs[i], n_rows, n_cols, square_size, 
-                                   False) for i in len(calib_imgs)]
-        mtx = [calib[i]['camera_matrix'] for i in len(calib)]
-        dist = [calib[i]['dist_coeffs'] for i in len(calib)]
+                                   False) for i in range(len(calib_imgs))]
+        mtx = [calib[i]['camera_matrix'] for i in range(len(calib))]
+        dist = [calib[i]['dist_coeffs'] for i in range(len(calib))]
         rmse, R, T = stereoCalibration(*calib_imgs, *mtx, *dist, 4, 7, 2.5, False)
         projMat1 = mtx[0] @ cv.hconcat([np.eye(3), np.zeros((3,1))]) # Cam1 is the origin
         projMat2 = mtx[1] @ cv.hconcat([R, T]) # R, T from stereoCalibrate
@@ -139,7 +139,7 @@ class Mocap():
         
         markers = list()
         for i in range(len(labels)):
-            markers.append(self.Marker(labels[i], [coord[0][i], coord[1][i]], (0,)*3))
+            markers.append(Marker(labels[i], [coord[0][i], coord[1][i]], (0,)*3))
         return markers
 
     def mocapProcess(self):

@@ -7,8 +7,8 @@ from src.gui.app import run as dash_app
 
 def main():
     # mocapSim()
-    # dash_mocap_sim()
-    dev_sim_main()
+    dash_mocap_sim()
+    # dev_sim_main()
 
 def dash_mocap_sim():
     with concurrent.futures.ThreadPoolExecutor() as executor:
