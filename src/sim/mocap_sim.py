@@ -16,14 +16,14 @@ def mocapSim():
 def scratchpaper():
     import cv2 as cv
     import numpy as np
-    from src.mocap.calibration import calibrateCameraIntrinsic, stereoCalibration
+    from src.mocap.calibration import calibCamIntrinsic, stereoCalibration
     calibration_imgs = [
         [f"src/mocap/media/calib/cam01_{i}.png" for i in range(12)],
         [f"src/mocap/media/calib/cam02_{i}.png" for i in range(12)]
     ]
 
-    calib1 = calibrateCameraIntrinsic(calibration_imgs[0], 4, 7, 2.5, False)
-    calib2 = calibrateCameraIntrinsic(calibration_imgs[1], 4, 7, 2.5, False)
+    calib1 = calibCamIntrinsic(calibration_imgs[0], 4, 7, 2.5, False)
+    calib2 = calibCamIntrinsic(calibration_imgs[1], 4, 7, 2.5, False)
     mtx1 = calib1['camera_matrix']
     mtx2 = calib2['camera_matrix']
     dist1 = calib1['dist_coeffs']

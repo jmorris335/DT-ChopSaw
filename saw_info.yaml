@@ -1,0 +1,21 @@
+--- # Information for Saw
+model: DWS780
+type: 22
+name: 12in Double Bevel Sliding Compound Miter Saw
+dimensions:
+  arm_length: .30 #m
+  stem_height: .15 #cm
+  base_length: .4 #m
+  slider_length: .18 #m
+
+--- # Information for Blade
+model: 1296N-1
+dimensions:
+  radius_blade: 0.1525 #m
+  tooth_type: TCG
+  num_teeth_blade: 96
+  arbor_dia: 0.015875 #m
+  kerf_blade: .0023 #m
+  hook: -0.0872664626 #m
+  thickness: 0.0018 #m
+

@@ -1,0 +1,28 @@
+--- # List of Markers
+DICTIONARY: DICT_6X6_50
+PIXEL_SIZE: 100
+markers:
+  - name: origin_1
+    id: 0
+  - name: origin_2
+    id: 1
+  - name: base_1
+    id: 10
+  - name: base_2
+    id: 11
+  - name: miter_1
+    id: 12
+  - name: miter_2
+    id: 13
+  - name: stem_1
+    id: 14
+  - name: stem_2
+    id: 15
+  - name: slider_1
+    id: 20
+  - name: slider_2
+    id: 21
+  - name: arm_1
+    id: 30
+  - name: arm_2
+    id: 31

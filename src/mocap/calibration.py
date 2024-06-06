@@ -14,7 +14,7 @@ import numpy as np
 import cv2 as cv
 
 
-def calibrateCameraIntrinsic(image_filepaths: list, num_rows: int, num_cols: int, square_size: float, show_images: bool=False) -> dict:
+def calibCamIntrinsic(image_filepaths: list, num_rows: int, num_cols: int, square_size: float, show_images: bool=False) -> dict:
     """Calibrates the camera against several checkerboard images using the OpenCV library.
 
     This calibration focuses on intrisic calibration (not sychronization). The values 
@@ -176,7 +176,7 @@ if __name__ == '__main__':
     for camera in cameras:
         # mono_img_paths = [f"src/mocap/test-mocap/{camera}_calib_{i+1}.jpg" for i in range(9)]
         mono_img_paths = [f"src/mocap/temugeB_demo/frames/mono_calib/camera{camera}_{i}.png" for i in range(4)]
-        calib_consts = calibrateCameraIntrinsic(mono_img_paths, num_rows, num_cols, square_size, show_images=False)
+        calib_consts = calibCamIntrinsic(mono_img_paths, num_rows, num_cols, square_size, show_images=False)
         print(f"RMSE for intrinsic calibration of camera {camera} is {calib_consts['rmse']}")
         cam_mtrxs.append(calib_consts['camera_matrix'])
         cam_dist_coeffs.append(calib_consts['dist_coeffs'])

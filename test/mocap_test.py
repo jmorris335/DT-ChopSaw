@@ -12,7 +12,7 @@ class MocapTest(unittest.TestCase):
         self.square_size = 2.54
 
     def test_calibration(self):
-        rmse, cam_mtx, dist = calibrateCameraIntrinsic(self.img_paths, self.num_rows, self.num_cols, self.square_size)
+        rmse, cam_mtx, dist = calibCamIntrinsic(self.img_paths, self.num_rows, self.num_cols, self.square_size)
         assert(rmse < 0.5)
 
 if __name__ == '__main__':

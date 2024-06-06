@@ -20,8 +20,9 @@ import logging as log
 import time
 import threading
 
-from src.mocap.calibration import calibrateCameraIntrinsic, stereoCalibration
+from src.mocap.calibration import calibCamIntrinsic, stereoCalibration
 from src.mocap.camera_interface import VideoInterface
+from src.mocap.markers import Marker, Aruco
 from src.auxiliary.geometry import pointDistance
 from src.db.actor import DBActor
 
@@ -29,52 +30,6 @@ log.basicConfig(level=log.DEBUG)
 
 class Mocap():
     """Performs linear transformations of planar points into 3D space."""
-    class Marker:
-        __slots__ = ("label", "planar_coords", "global_coord", "db_key")
-        def __init__(self, label: str, planar_coords: list, global_coord: tuple, db_key: int=None):
-            """Container class for marker points.
-            
-            Parameters
-            ----------
-            label : str
-                The label for the marker
-            planar_coords : list
-                A 2x2 array of 1x2 tuples of floats representing the coordinate 
-                points for the marker in the camera plane. This is of the form 
-                `[(x1, y1), (x2, y2)]`.
-            global_coord : tuple
-                A 3x1 tuple representing the marker's coordinates in Euclidean 
-                geometry
-            db_key : int
-                The database key for the marker
-            """
-            self.label = label
-            self.db_key = db_key
-            self.planar_coords = planar_coords
-            self.global_coord = global_coord
-
-        def planar2global(self, camera_mtrx: list, projection_mtrxs: list, dist_coeffs: list) -> tuple:
-            # points1 is a (N, 1, 2) float32
-            points1 = np.array(self.planar_coords[0], 'float32')
-            points2 = np.array(self.planar_coords[1], 'float32')
-
-            points1u = cv.undistortPoints(points1, camera_mtrx[0], dist_coeffs[0], None, camera_mtrx[0])
-            points2u = cv.undistortPoints(points2, camera_mtrx[1], dist_coeffs[1], None, camera_mtrx[1])
-
-            points4d = cv.triangulatePoints(projection_mtrxs[0], projection_mtrxs[1], points1u, points2u)
-            T_w = [[1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]]
-            points4d = T_w @ points4d
-            points3d = (points4d[:3, :]/points4d[3, :]).T
-            self.global_coord = tuple(points3d[0])
-
-        def planar2globalOLD(self, projection_mtrxs: list) -> tuple:
-            """Triangulates the 3D coordinates from the two 2D coordinates."""
-            points2D = np.array(self.planar_coords, 'float').T
-            points4D = cv.triangulatePoints(*projection_mtrxs[:2], *points2D[:2])
-            points3D = points4D[:3] / points4D[-1]
-            self.global_coord = tuple(points3D.T[0])
-            return points4D[:3]
-
     def __init__(self, camera1, camera2, projection_mtrxs: list=None, calib_frames=None):
         """
         Parameters
@@ -101,6 +56,9 @@ class Mocap():
         else:
             self.projection_mtrxs = projection_mtrxs
             self.is_calibrated = True
+
+        # Setup marker tracking
+        self.aruco = Aruco()
             
         # Initialize Database
         self.db = DBActor()
@@ -142,53 +100,35 @@ class Mocap():
         ]
         return calib_frames
     
-    def calibrate(self, calibration_imgs):
-        calib1 = calibrateCameraIntrinsic(calibration_imgs[0], 4, 7, 2.5, False)
-        calib2 = calibrateCameraIntrinsic(calibration_imgs[1], 4, 7, 2.5, False)
-        mtx1 = calib1['camera_matrix']
-        mtx2 = calib2['camera_matrix']
-        dist1 = calib1['dist_coeffs']
-        dist2 = calib2['dist_coeffs']
-        rmse, R, T = stereoCalibration(*calibration_imgs, mtx1, mtx2, dist1, dist2, 4, 7, 2.5, False)
-        projMat1 = mtx1 @ cv.hconcat([np.eye(3), np.zeros((3,1))]) # Cam1 is the origin
-        projMat2 = mtx2 @ cv.hconcat([R, T]) # R, T from stereoCalibrate
+    def calibrate(self, calib_imgs: list, n_rows: int=4, n_cols: int=7, 
+                  square_size: float=2.5):
+        """Retrieves the calibration constants from a set of given images.
+        
+        Parameters
+        ----------
+        calib_imgs : list
+            list of size 2, where each entry is a list of images taken from a 
+            single camera. Each image is of a checkerboard captured by each 
+            camera at a single instant (so that each image is synchronized). See
+            `camera_interface.py` for assistance in taking the images.
+        n_rows: int=4
+            The number of rows of intersections on the checkerboard
+        n_cols: int=7
+            The number of columns of intersections on the checkerboard
+        square_size: float=2.5
+            The dimension of a single square on the checkerboard, in cm
+        """
+        calib = [calibCamIntrinsic(calib_imgs[i], n_rows, n_cols, square_size, 
+                                   False) for i in len(calib_imgs)]
+        mtx = [calib[i]['camera_matrix'] for i in len(calib)]
+        dist = [calib[i]['dist_coeffs'] for i in len(calib)]
+        rmse, R, T = stereoCalibration(*calib_imgs, *mtx, *dist, 4, 7, 2.5, False)
+        projMat1 = mtx[0] @ cv.hconcat([np.eye(3), np.zeros((3,1))]) # Cam1 is the origin
+        projMat2 = mtx[1] @ cv.hconcat([R, T]) # R, T from stereoCalibrate
 
         self.projection_mtrxs = [projMat1, projMat2]
-        self.dist_coeffs = [dist1, dist2]
-        self.camera_mtrxs = [mtx1, mtx2]
-
-    def calibrateOld(self, calib_img_paths: list, 
-                  num_rows: int=4, num_cols: int=7, square_size: float=2.5):
-        """Calibrates the class for according to a calibration object for use in arbitrary
-        coordination.
-        
-        Paramters
-        ---------
-        """
-        cam_mtrxs, cam_dist_coeffs = list(), list()
-        for imgs in calib_img_paths:
-            calib_consts = calibrateCameraIntrinsic(imgs, num_rows, num_cols, 
-                                                    square_size, show_images=False)
-            
-            log.debug(f"Camera {calib_img_paths.index(imgs)} RMSE: {calib_consts['rmse']}")
-            cam_mtrxs.append(calib_consts['camera_matrix'])
-            cam_dist_coeffs.append(calib_consts['dist_coeffs'])
-    
-        rmse, R, T = stereoCalibration(*calib_img_paths[:2], *cam_mtrxs, *cam_dist_coeffs, 
-                      num_rows, num_cols, square_size, show_images=False)
-        log.debug(f"Stereo calibration RMSE: {rmse}")
-
-        self.projection_mtrxs = list()
-        RT1 = np.concatenate([np.eye(3), [[0],[0],[0]]], axis = -1)
-        P1 = R @ RT1 #projection matrix for C1
-        self.projection_mtrxs.append(P1)
-    
-        RT2 = np.concatenate([R, T], axis = -1)
-        P2 = R @ RT2 #projection matrix for C2
-        self.projection_mtrxs.append(P2)
-
-        self.is_calibrated = True
-        log.info("Calibrated cameras")
+        self.dist_coeffs = dist
+        self.camera_mtrxs = mtx
     
     def getDefaultMarkers(self) -> list:
         """Returns list of planar coordinates of the default markers for the saw in 

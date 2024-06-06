@@ -8,7 +8,7 @@
 
 DB_OFF = False
 """
-DB_OFF : bool, default = True
+DB_OFF : bool, default = False
     The database should not be connected to or written to. Helpful for development or
     testing the code when a DB cannot (or should not) be connected.
 """
