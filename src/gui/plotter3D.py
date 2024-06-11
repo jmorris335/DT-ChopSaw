@@ -1,5 +1,5 @@
 """
-| File: threeDplotter.py 
+| File: plotter3D.py 
 | Info: Methods for 3D plotting using the Plotly framework
 | Author: John Morris, jhmrrs@clemson.edu  
 | Organization: Product Lifecycle Management Center at Clemson University, plmcenter@clemson.edu  
@@ -11,12 +11,25 @@
 import numpy as np
 import plotly.graph_objects as go
 
+from src.auxiliary.geometry import pointDistance
+
 if __name__ == '__main__':
     import os, sys
     os.chdir("/Users/john_morris/Documents/Clemson/Research/DTs-Public/DT-ChopSaw")
     sys.path.insert(0, '')
 
 from src.auxiliary.transform import Transform
+
+def makeCylinderFromEndpoints(pt1, pt2, radius, color, opacity=1.0, n_elements=15):
+    """Wrapper for makeCylinder that takes a set of endpoints and returns the 
+    surfaces of the cylinder."""
+    dz = pointDistance(pt1, pt2)
+    adj_pt = [pt2[i] - pt1[i] for i in range(len(pt1))]
+    adj_pt = adj_pt / np.linalg.norm(adj_pt)
+    x, y, z = adj_pt
+    psi = np.arctan2(y, x)
+    phi = np.arctan2(np.sqrt(x**2 + y**2), z)
+    return makeCylinder(*pt1, radius, dz, 0., phi, psi, n_elements, color, opacity)
 
 def makeCylinderWall(x, y, z, r, dz, n_elements=15):
     """Create a cylindrical mesh located at x, y, z, with radius r and height dz
@@ -81,15 +94,13 @@ def makeCylinderMeshes(x: float, y: float, z: float, radius: float, height: floa
     return meshes
 
 def rotateCylinder(wall, bott, top, theta: float, phi: float, psi: float, 
-                   height: float, x: float=0., y: float=0., z: float=0.):
+                   x: float=0., y: float=0., z: float=0.):
     """Rotates the cylinder meshes around x, y, and z axis, offset by x, y, and
     z coordinates."""
-    # if theta == 0. and phi == 0. and psi == 0.:
-    #     return (wall, bott, top)
+    if theta == 0. and phi == 0. and psi == 0.:
+        return (wall, bott, top)
     T = Transform()
     T.rotate(theta, phi, psi, x, y, z)
-    meshes = [wall, bott, top]
-    out = [make3D(T.transform(make2D(m))[:,:3]) for m in meshes]
 
     rotate = lambda m, T : T.transform(make2D(m))
     wall =  make3D(rotate(wall, T)[:,:3])
@@ -174,8 +185,3 @@ if __name__ == '__main__':
     cyl_surfaces = makeCylinder(0, 0, 0, 1, 5, theta=np.pi/4, phi=np.pi/4, n_elements=90)
     fig = go.Figure(cyl_surfaces)
     fig.show()
-
-
-
-
-

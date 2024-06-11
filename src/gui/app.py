@@ -18,7 +18,7 @@ import base64
 
 from src.db.actor import DBActor
 from src.db.db_names import *
-from src.gui.threeDplotter import makeCylinder
+from src.gui.plotter3D import makeCylinder
 
 log.basicConfig(level=log.DEBUG)
 

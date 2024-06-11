@@ -43,3 +43,4 @@ def shiftIndices(indices: list, index: int=0, shiftPos: bool=True):
     for i in range(len(indices)):
         if indices[i] >= index:
             indices[i] += 1 if shiftPos else -1
+

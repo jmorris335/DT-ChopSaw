@@ -56,8 +56,8 @@ class Transform:
         self.orig_orientation = orientation
         self.curr_orientation = list()
     
-        self.orig_centroid = centroid
-        self.curr_centroid = copy.deepcopy(centroid)
+        self.orig_centroid = list(centroid)
+        self.curr_centroid = list(centroid)
 
     def updateT(self):
         ''' Updates "T" based on changes in "Tsub", then clears "Tsub"
@@ -85,6 +85,7 @@ class Transform:
         Aprime : np.array
             The product of A with T
         '''
+        if not isinstance(A, np.ndarray): A = np.array(A)
         A = self.refineA(A)
         A = A @ self.T
         rows, col = A.shape
@@ -97,6 +98,8 @@ class Transform:
     @staticmethod
     def refineA(A: np.array):
         ''' Pads A if A is Nx3 with 1's in the s-column, returning a Nx4 array.'''
+        if len(np.shape(A)) < 2:
+            A = np.array([A])
         if A.shape[1] < 4: 
             A = np.pad(A, ((0, 0),(0, 1)), constant_values=1)
         return A

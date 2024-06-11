@@ -79,7 +79,7 @@ class Aruco:
         """Generates the set of ArUco markers."""
         for m in self.markers:
             am = cv.aruco.generateImageMarker(self.ARUCO_DICT, m.id, self.PIXEL_SIZE)
-            filepath = "src/mocap/demo/ArUco/marker" + str(m.id) + ".png"
+            filepath = f"src/mocap/demo/ArUco/{m.name}_marker{m.id}.png"
             cv.imwrite(filepath, am)
             cv.imshow("Marker ID " + str(m.id), am)
             if show:
@@ -100,6 +100,6 @@ class Aruco:
 
 if __name__ == "__main__":
     a = Aruco()
-    # a.generateMarkers(show=False)
-    frame = cv.imread("src/mocap/dev-mocap/ArUco Test.jpg")
-    a.detectMarkers(frame, show=True)
+    a.generateMarkers(show=False)
+    # frame = cv.imread("src/mocap/dev-mocap/ArUco Test.jpg")
+    # a.detectMarkers(frame, show=True)
