@@ -1,0 +1,262 @@
+
+
+<!doctype html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>src.objects.structure &#8212; DT-Chop_Saw 0.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=649a27d8" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/bizstyle.css?v=532c1bf3" />
+    
+    <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
+    <script src="../../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/bizstyle.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <!--[if lt IE 9]>
+    <script src="_static/css3-mediaqueries.js"></script>
+    <![endif]-->
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">DT-Chop_Saw 0.1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">src.objects.structure</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for src.objects.structure</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">| File: structure.py </span>
+<span class="sd">| Info: Presents the state-model for a the structure of a radial-arm saw. </span>
+<span class="sd">| Author: John Morris, jhmrrs@clemson.edu  </span>
+<span class="sd">| Organization: Product Lifecycle Management Center at Clemson University, plmcenter@clemson.edu  </span>
+<span class="sd">| Permission: Copyright (C) 2023, John Morris. All rights reserved. Should not be reproduced, edited, sourced, or utilized without written permission from the author or organization</span>
+<span class="sd">| Version History:</span>
+<span class="sd">| - 0.1, 15 Jan 2024: Initialized</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">matplotlib.patches</span> <span class="kn">import</span> <span class="n">Rectangle</span>
+
+<span class="kn">from</span> <span class="nn">src.auxiliary.support</span> <span class="kn">import</span> <span class="n">findDefault</span>
+<span class="kn">from</span> <span class="nn">src.objects.twin</span> <span class="kn">import</span> <span class="n">Twin</span>
+<span class="kn">from</span> <span class="nn">src.db.logger</span> <span class="kn">import</span> <span class="n">Logger</span>
+
+<div class="viewcode-block" id="Arm">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.structure.Arm">[docs]</a>
+<span class="k">class</span> <span class="nc">Arm</span><span class="p">(</span><span class="n">Twin</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Primitive state model of the arm for a radial arm saw.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters:</span>
+<span class="sd">    ----------</span>
+<span class="sd">    **kwargs : dict, optional</span>
+<span class="sd">        Optional editing of state variables during initialization. Possible arguments are:</span>
+
+<span class="sd">        h0_arm : float, default=0.08 meters</span>
+<span class="sd">            The resting height for the center of the blade holder.</span>
+<span class="sd">        l0_rotating_arm : float, default=0.125 meters</span>
+<span class="sd">            The length between the hinge point (for theta_arm) and the center of the blade holder.</span>
+<span class="sd">        width_arm : float, default=0.05 meters</span>
+<span class="sd">            The diameter of the circular arm, primarily used for plotting purposes.</span>
+<span class="sd">        l0_arm : float, default=0.15 meters</span>
+<span class="sd">            The minimum length of the linear arm (unextended).</span>
+<span class="sd">        gap_arm : float, default=0.12 meters</span>
+<span class="sd">            The distance between the unextended arm and the rear guard.</span>
+<span class="sd">        x_arm : float, default=0.0 meters</span>
+<span class="sd">            The linear displacement of the arm in/towards (positive) and out/away from the operator.</span>
+<span class="sd">            0 (default) is all the way towards the workpiece (fully engaged).</span>
+<span class="sd">        theta_arm : float, default=0.0 radians</span>
+<span class="sd">            The angular position of the blade holder wrt to the workbench, with 0 providing full </span>
+<span class="sd">            engagement of the blade and pi/2 being perpendicular to the workbench.</span>
+<span class="sd">        phi_arm : float, default=0.0 radians</span>
+<span class="sd">            The angular tilt of the blade (allowing for miter cuts), measured CCW from vertical.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">Twin</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="c1"># Static Values</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="s2">&quot;Arm&quot;</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">h0_arm</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">0.04</span><span class="p">,</span> <span class="s2">&quot;h0_arm&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">l0_rotating_arm</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">.125</span><span class="p">,</span> <span class="s2">&quot;l0_rotating_arm&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">width_arm</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">.05</span><span class="p">,</span> <span class="s2">&quot;width_arm&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">l0_arm</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">.15</span><span class="p">,</span> <span class="s2">&quot;l0_slider&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gap_arm</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">.12</span><span class="p">,</span> <span class="s2">&quot;gap_arm&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="c1"># Dynamic Values</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">x_arm</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">0.</span><span class="p">,</span> <span class="s2">&quot;x_arm&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">theta_arm</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">0.</span><span class="p">,</span> <span class="s2">&quot;theta_arm&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">phi_arm</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">0.</span><span class="p">,</span> <span class="s2">&quot;phi_arm&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="c1"># Twin inherited methods/attributes overloading</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">Logger</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">patches</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">plot</span><span class="p">()</span>
+
+<div class="viewcode-block" id="Arm.plot">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.structure.Arm.plot">[docs]</a>
+    <span class="k">def</span> <span class="nf">plot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns a list of matplotlib.patches.Patch objects that represent the entity.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span> <span class="n">x</span> <span class="o">=</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">l0_arm</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">gap_arm</span>
+        <span class="k">if</span> <span class="n">y</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span> <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">h0_arm</span> <span class="o">-</span> <span class="mf">.5</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">width_arm</span>
+        
+        <span class="n">patches</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="n">patches</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">plotLinearArmPatch</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>
+        <span class="n">patches</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">plotSliderArmPatch</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>
+        <span class="n">patches</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">plotAngularArmPatch</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">patches</span></div>
+
+    
+<div class="viewcode-block" id="Arm.plotLinearArmPatch">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.structure.Arm.plotLinearArmPatch">[docs]</a>
+    <span class="k">def</span> <span class="nf">plotLinearArmPatch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns matplotlib patch object for linear arm.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Rectangle</span><span class="p">(</span><span class="n">xy</span><span class="o">=</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">),</span> <span class="n">width</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">l0_arm</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">width_arm</span><span class="p">,</span> 
+                         <span class="n">animated</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">fc</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="n">ec</span><span class="o">=</span><span class="s1">&#39;k&#39;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Static Arm&#39;</span><span class="p">)</span></div>
+
+    
+<div class="viewcode-block" id="Arm.plotSliderArmPatch">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.structure.Arm.plotSliderArmPatch">[docs]</a>
+    <span class="k">def</span> <span class="nf">plotSliderArmPatch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns matplotlib patch object for slider arm.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Rectangle</span><span class="p">(</span><span class="n">xy</span><span class="o">=</span><span class="p">(</span><span class="n">x</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">l0_arm</span><span class="p">,</span> <span class="n">y</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">width_arm</span> <span class="o">*</span> <span class="mf">0.1</span><span class="p">),</span> 
+                         <span class="n">width</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">x_arm</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">width_arm</span> <span class="o">*</span> <span class="mf">0.8</span><span class="p">,</span> 
+                         <span class="n">animated</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">fc</span><span class="o">=</span><span class="s2">&quot;white&quot;</span><span class="p">,</span> <span class="n">ec</span><span class="o">=</span><span class="s1">&#39;k&#39;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Sliding Arm&#39;</span><span class="p">)</span></div>
+
+    
+<div class="viewcode-block" id="Arm.plotAngularArmPatch">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.structure.Arm.plotAngularArmPatch">[docs]</a>
+    <span class="k">def</span> <span class="nf">plotAngularArmPatch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns matplotlib patch object for angular arm.&quot;&quot;&quot;</span>
+        <span class="n">x_ang</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">l0_arm</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">x_arm</span>
+        <span class="n">y_ang</span> <span class="o">=</span> <span class="n">y</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">h0_arm</span>
+        <span class="n">patch</span> <span class="o">=</span> <span class="n">Rectangle</span><span class="p">(</span><span class="n">xy</span><span class="o">=</span><span class="p">(</span><span class="n">x_ang</span><span class="p">,</span> <span class="n">y_ang</span><span class="p">),</span> <span class="n">width</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">l0_rotating_arm</span><span class="p">,</span> 
+                          <span class="n">height</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">width_arm</span><span class="p">,</span> <span class="n">rotation_point</span><span class="o">=</span><span class="p">(</span><span class="n">x_ang</span><span class="p">,</span> <span class="n">y_ang</span> <span class="o">+</span> <span class="mf">.5</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">width_arm</span><span class="p">),</span>
+                          <span class="n">animated</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">fc</span><span class="o">=</span><span class="s2">&quot;yellow&quot;</span><span class="p">,</span> <span class="n">ec</span><span class="o">=</span><span class="s2">&quot;k&quot;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Rotating Arm&#39;</span><span class="p">)</span>
+        <span class="n">patch</span><span class="o">.</span><span class="n">set_angle</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">theta_arm</span> <span class="o">*</span> <span class="mi">180</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">patch</span></div>
+
+    
+<div class="viewcode-block" id="Arm.updatePatches">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.structure.Arm.updatePatches">[docs]</a>
+    <span class="k">def</span> <span class="nf">updatePatches</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Updates patch objects of entity.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span> <span class="n">x</span> <span class="o">=</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">l0_arm</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">gap_arm</span>
+        <span class="k">if</span> <span class="n">y</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span> <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">h0_arm</span> <span class="o">-</span> <span class="mf">.5</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">width_arm</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">updateLinearArmPatch</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">updateSliderPatch</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">updateAngularArmPatch</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Arm.updateLinearArmPatch">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.structure.Arm.updateLinearArmPatch">[docs]</a>
+    <span class="k">def</span> <span class="nf">updateLinearArmPatch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Updates xy position of linear arm patch.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">patches</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">xy</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="Arm.updateSliderPatch">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.structure.Arm.updateSliderPatch">[docs]</a>
+    <span class="k">def</span> <span class="nf">updateSliderPatch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Updates xy position, length of slider patch.&quot;&quot;&quot;</span>
+        <span class="n">x_slider</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">l0_arm</span>
+        <span class="n">y_slider</span> <span class="o">=</span> <span class="n">y</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">width_arm</span> <span class="o">*</span> <span class="mf">0.1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">patches</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">xy</span> <span class="o">=</span> <span class="p">(</span><span class="n">x_slider</span><span class="p">,</span> <span class="n">y_slider</span><span class="p">),</span> <span class="n">width</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">x_arm</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Arm.updateAngularArmPatch">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.structure.Arm.updateAngularArmPatch">[docs]</a>
+    <span class="k">def</span> <span class="nf">updateAngularArmPatch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Updates xy position, rotation angle of angular arm patch.&quot;&quot;&quot;</span>
+        <span class="n">x_ang</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">l0_arm</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">x_arm</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">patches</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">xy</span> <span class="o">=</span> <span class="p">(</span><span class="n">x_ang</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">patches</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">rotation_point</span> <span class="o">=</span> <span class="p">(</span><span class="n">x_ang</span><span class="p">,</span> <span class="n">y</span> <span class="o">+</span> <span class="mf">.5</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">width_arm</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">patches</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">set_angle</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">theta_arm</span> <span class="o">*</span> <span class="mi">180</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span></div>
+</div>
+
+        
+<div class="viewcode-block" id="Table">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.structure.Table">[docs]</a>
+<span class="k">class</span> <span class="nc">Table</span><span class="p">(</span><span class="n">Twin</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Primitive state model of the table of a radial arm saw.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters:</span>
+<span class="sd">    ----------</span>
+<span class="sd">    **kwargs : dict, optional</span>
+<span class="sd">        Optional editing of state variables during initialization. Possible arguments are:</span>
+
+<span class="sd">        theta_table : float, default=0.0 radians</span>
+<span class="sd">            The angular position of the table in reference to the workpiece, as seen from bird&#39;s eye </span>
+<span class="sd">            view, with positive defined CCW from default (straight) cuts.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">Twin</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+        <span class="c1">#Static Values</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="s2">&quot;Table&quot;</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="c1"># Dynamic Values</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">theta_table</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">0.</span><span class="p">,</span> <span class="s2">&quot;theta_table&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="c1"># Twin inherited methods/attributes overloading</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">Logger</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">DT-Chop_Saw 0.1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">src.objects.structure</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2023, John_Morris.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.2.6.
+    </div>
+  </body>
+</html>

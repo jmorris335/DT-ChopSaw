@@ -1,0 +1,664 @@
+
+
+<!doctype html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>src.objects.cut &#8212; DT-Chop_Saw 0.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=649a27d8" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/bizstyle.css?v=532c1bf3" />
+    
+    <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
+    <script src="../../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/bizstyle.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <!--[if lt IE 9]>
+    <script src="_static/css3-mediaqueries.js"></script>
+    <![endif]-->
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">DT-Chop_Saw 0.1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">src.objects.cut</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for src.objects.cut</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">| File: cut.py </span>
+<span class="sd">| Info: Presents the state-model for a cut made with a chopsaw on a homogeneous workpiece </span>
+<span class="sd">| Author: John Morris, jhmrrs@clemson.edu  </span>
+<span class="sd">| Organization: Product Lifecycle Management Center at Clemson University, plmcenter@clemson.edu  </span>
+<span class="sd">| Permission: Copyright (C) 2023, John Morris. All rights reserved. Should not be reproduced, edited, sourced, or utilized without written permission from the author or organization</span>
+<span class="sd">| Version History:</span>
+<span class="sd">| - 0.1, 30 Jan 2024: Minimum viable functionality</span>
+<span class="sd">| - 0.2, 15 Feb 2024: Full clipping functionality</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">src.auxiliary.support</span> <span class="kn">import</span> <span class="n">findDefault</span><span class="p">,</span> <span class="n">loopSlice</span>
+<span class="kn">import</span> <span class="nn">src.auxiliary.geometry</span> <span class="k">as</span> <span class="nn">geo</span>
+<span class="kn">from</span> <span class="nn">src.db.logger</span> <span class="kn">import</span> <span class="n">Logger</span>
+<span class="kn">from</span> <span class="nn">src.objects.twin</span> <span class="kn">import</span> <span class="n">Twin</span>
+<span class="kn">from</span> <span class="nn">src.objects.saw</span> <span class="kn">import</span> <span class="n">Saw</span>
+<span class="kn">from</span> <span class="nn">src.objects.workpiece</span> <span class="kn">import</span> <span class="n">Workpiece</span>
+
+<div class="viewcode-block" id="Cut">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.cut.Cut">[docs]</a>
+<span class="k">class</span> <span class="nc">Cut</span><span class="p">(</span><span class="n">Twin</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Models the act of cutting a workpiece with a saw blade.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    saw : Saw, default=Saw()</span>
+<span class="sd">        The saw performing the cut, constructs a new ChopSaw object by default.</span>
+<span class="sd">    wkp : Workpiece, default=Workpiece()</span>
+<span class="sd">        The workpiece being cut, constructs a new Workpiece object by default.</span>
+<span class="sd">    **kwargs : dict, optional</span>
+<span class="sd">        Optional editing of state variables during initialization. Optional parameters are:</span>
+<span class="sd">        a0 : float, default=0.0</span>
+<span class="sd">            Calibration constant for tangential (fricational) loading.</span>
+<span class="sd">        a1 : float, default=1.0</span>
+<span class="sd">            Calibration constant for tangential (fricational) loading.</span>
+<span class="sd">        a2 : float, default=1.0</span>
+<span class="sd">            Calibration constant for tangential (fricational) loading.</span>
+<span class="sd">        a3 : float, default=1.0</span>
+<span class="sd">            Calibration constant for tangential (fricational) loading.</span>
+<span class="sd">        a4 : float, default=1.0</span>
+<span class="sd">            Calibration constant for tangential (fricational) loading.</span>
+<span class="sd">        b0 : float, default=0.0</span>
+<span class="sd">            Calibration constant for normal (radial) loading.</span>
+<span class="sd">        b1 : float, default=1.0</span>
+<span class="sd">            Calibration constant for normal (radial) loading.</span>
+<span class="sd">        b2 : float, default=1.0</span>
+<span class="sd">            Calibration constant for normal (radial) loading.</span>
+<span class="sd">        b3 : float, default=1.0</span>
+<span class="sd">            Calibration constant for normal (radial) loading.</span>
+<span class="sd">        b4 : float, default=1.0</span>
+<span class="sd">            Calibration constant for normal (radial) loading.</span>
+
+<span class="sd">    References</span>
+<span class="sd">    ----------</span>
+<span class="sd">    1. Kapoor, S. G., R. E. DeVor, R. Zhu, R. Gajjela, G. Parakkal, and D. Smithey. “Development of Mechanistic Models for the Prediction of Machining Performance: Model Building Methodology.” Machining Science and Technology 2, no. 2 (December 1, 1998): 213-38. https://doi.org/10.1080/10940349808945669.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">saw</span><span class="p">:</span> <span class="n">Saw</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">wkp</span><span class="p">:</span> <span class="n">Workpiece</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">Twin</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="c1"># Components</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">saw</span> <span class="o">=</span> <span class="n">saw</span> <span class="k">if</span> <span class="n">saw</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">Saw</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wkp</span> <span class="o">=</span> <span class="n">wkp</span> <span class="k">if</span> <span class="n">wkp</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">Workpiece</span><span class="p">()</span>
+        
+        <span class="c1"># Static Values</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="s2">&quot;Cut&quot;</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">a0</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">0.</span><span class="p">,</span> <span class="s2">&quot;a0&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">a1</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">1.</span><span class="p">,</span> <span class="s2">&quot;a1&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">a2</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">1.</span><span class="p">,</span> <span class="s2">&quot;a2&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">a3</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">1.</span><span class="p">,</span> <span class="s2">&quot;a3&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">a4</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">1.</span><span class="p">,</span> <span class="s2">&quot;a4&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">b0</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">0.</span><span class="p">,</span> <span class="s2">&quot;b0&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">b1</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">1.</span><span class="p">,</span> <span class="s2">&quot;b1&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">b2</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">1.</span><span class="p">,</span> <span class="s2">&quot;b2&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">b3</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">1.</span><span class="p">,</span> <span class="s2">&quot;b3&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">b4</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">1.</span><span class="p">,</span> <span class="s2">&quot;b4&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="c1"># Dynamic Values</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">all_cut</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cut_depth</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">0.</span><span class="p">,</span> <span class="s2">&quot;chip_depth&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">blade_center</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">saw</span><span class="o">.</span><span class="n">bladePosition</span>
+
+        <span class="c1"># Twin inherited methods/attributes overloading</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">Logger</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">objects</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">saw</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">wkp</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">patches</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">saw</span><span class="o">.</span><span class="n">patches</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">wkp</span><span class="o">.</span><span class="n">patches</span>
+
+<div class="viewcode-block" id="Cut.step">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.cut.Cut.step">[docs]</a>
+    <span class="k">def</span> <span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Finds the intersection between the blade and workpiece, calculating the average</span>
+<span class="sd">        radial height of the intersection, and then restructures the workpiece path to be the</span>
+<span class="sd">        same as the blade circle where intersecting (removing cut material).&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">all_cut</span><span class="p">:</span> <span class="k">return</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">blade_center</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">saw</span><span class="o">.</span><span class="n">bladePosition</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">all_cut</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">checkWkpEnclosedInBlade</span><span class="p">():</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">wkp</span><span class="o">.</span><span class="n">loops</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">updatePatches</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">all_cut</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">cut_depth</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">performCutOperation</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">updateDynamics</span><span class="p">()</span>
+        <span class="n">Twin</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Cut.calcNormalPressureCoef">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.cut.Cut.calcNormalPressureCoef">[docs]</a>
+    <span class="k">def</span> <span class="nf">calcNormalPressureCoef</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculates the pressure coefficients for the normal force on the rake face.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">calcPressureCoef</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">a0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">a1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">a2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">a3</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">a4</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Cut.calcTangentialPressureCoef">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.cut.Cut.calcTangentialPressureCoef">[docs]</a>
+    <span class="k">def</span> <span class="nf">calcTangentialPressureCoef</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculates the pressure coefficients for the normal force on the rake face.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">calcPressureCoef</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">b0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">b1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">b2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">b3</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">b4</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Cut.calcPressureCoef">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.cut.Cut.calcPressureCoef">[docs]</a>
+    <span class="k">def</span> <span class="nf">calcPressureCoef</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c0</span><span class="p">,</span> <span class="n">c1</span><span class="p">,</span> <span class="n">c2</span><span class="p">,</span> <span class="n">c3</span><span class="p">,</span> <span class="n">c4</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculates the pressure coefficients for use in Merchant&#39;s model using the regression </span>
+<span class="sd">        model found in Kapoor et al. (2024).&quot;&quot;&quot;</span>
+        <span class="n">V</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">saw</span><span class="o">.</span><span class="n">blade</span><span class="o">.</span><span class="n">omega_blade</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">lnK</span> <span class="o">=</span> <span class="n">c0</span> <span class="o">+</span> <span class="n">c1</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cut_depth</span><span class="p">)</span> <span class="o">+</span> <span class="n">c2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">V</span><span class="p">)</span> <span class="o">+</span> <span class="n">c3</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">saw</span><span class="o">.</span><span class="n">blade</span><span class="o">.</span><span class="n">rake</span> <span class="o">+</span> <span class="n">c4</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">V</span><span class="p">)</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cut_depth</span><span class="p">)</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mf">0.0</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">lnK</span><span class="p">):</span>
+            <span class="k">return</span> <span class="mf">0.0</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">lnK</span><span class="p">)</span></div>
+
+    
+<div class="viewcode-block" id="Cut.calcCutArea">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.cut.Cut.calcCutArea">[docs]</a>
+    <span class="k">def</span> <span class="nf">calcCutArea</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the area of the chip cross section.&quot;&quot;&quot;</span>
+        <span class="n">t_c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cut_depth</span>
+        <span class="k">return</span> <span class="n">t_c</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">saw</span><span class="o">.</span><span class="n">blade</span><span class="o">.</span><span class="n">kerf_blade</span></div>
+
+    
+<div class="viewcode-block" id="Cut.calcTangentForce">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.cut.Cut.calcTangentForce">[docs]</a>
+    <span class="k">def</span> <span class="nf">calcTangentForce</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the force tangent the to cutting tool.&quot;&quot;&quot;</span>
+        <span class="n">K</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calcNormalPressureCoef</span><span class="p">()</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calcCutArea</span><span class="p">()</span>
+        <span class="k">return</span> <span class="o">-</span><span class="n">K</span><span class="o">*</span><span class="n">A</span></div>
+
+    
+<div class="viewcode-block" id="Cut.updateDynamics">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.cut.Cut.updateDynamics">[docs]</a>
+    <span class="k">def</span> <span class="nf">updateDynamics</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Updates the inputs for each object.&quot;&quot;&quot;</span>
+        <span class="n">cut_torque</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calcTangentForce</span><span class="p">()</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">saw</span><span class="o">.</span><span class="n">blade</span><span class="o">.</span><span class="n">radius_blade</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logData</span><span class="p">(</span><span class="s2">&quot;cut_torque&quot;</span><span class="p">,</span> <span class="n">cut_torque</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">saw</span><span class="o">.</span><span class="n">blade</span><span class="o">.</span><span class="n">torque</span> <span class="o">+=</span> <span class="n">cut_torque</span></div>
+
+
+<div class="viewcode-block" id="Cut.performCutOperation">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.cut.Cut.performCutOperation">[docs]</a>
+    <span class="k">def</span> <span class="nf">performCutOperation</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Checks the workpiece and blade circle for intersections and clips the resulting </span>
+<span class="sd">        workpiece profiles.&quot;&quot;&quot;</span>
+        <span class="n">chip_depths</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">wkp</span><span class="o">.</span><span class="n">loops</span><span class="p">)):</span>
+            <span class="n">loop</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">wkp</span><span class="o">.</span><span class="n">loops</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">checkLoopEnclosedInBlade</span><span class="p">(</span><span class="n">loop</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">wkp</span><span class="o">.</span><span class="n">loops</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">checkBladeOutsideLoop</span><span class="p">(</span><span class="n">loop</span><span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="n">intx_pts</span><span class="p">,</span> <span class="n">seg_indices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">findBladeWkpIntxs</span><span class="p">(</span><span class="n">loop</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">intx_pts</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">loop_chip_depth</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calcAverageChipDepth</span><span class="p">(</span><span class="n">intx_pts</span><span class="p">,</span> <span class="n">seg_indices</span><span class="p">,</span> <span class="n">loop</span><span class="p">)</span>
+            <span class="n">chip_depths</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">loop_chip_depth</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">wkp</span><span class="o">.</span><span class="n">loops</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restructurePath</span><span class="p">(</span><span class="n">intx_pts</span><span class="p">,</span> <span class="n">seg_indices</span><span class="p">,</span> <span class="n">loop</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">chip_depths</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">setData</span><span class="p">(</span><span class="s2">&quot;cut_depth&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">chip_depths</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">setData</span><span class="p">(</span><span class="s2">&quot;cut_depth&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wkp</span><span class="o">.</span><span class="n">loops</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">wkp</span><span class="o">.</span><span class="n">cleanLoops</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">updatePatches</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="Cut.checkWkpEnclosedInBlade">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.cut.Cut.checkWkpEnclosedInBlade">[docs]</a>
+    <span class="k">def</span> <span class="nf">checkWkpEnclosedInBlade</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns true if the workpiece is entirely enclosed inside the blade circle </span>
+<span class="sd">        (indicating a complete cut).&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">loop</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">wkp</span><span class="o">.</span><span class="n">loops</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">checkLoopEnclosedInBlade</span><span class="p">(</span><span class="n">loop</span><span class="p">):</span>
+                <span class="k">return</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logMessage</span><span class="p">(</span><span class="s2">&quot;Workpiece enclosed in blade.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+    
+<div class="viewcode-block" id="Cut.checkLoopEnclosedInBlade">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.cut.Cut.checkLoopEnclosedInBlade">[docs]</a>
+    <span class="k">def</span> <span class="nf">checkLoopEnclosedInBlade</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loop</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns True if the loop is entirely enclosed inside the blade circle. The blade </span>
+<span class="sd">        circle is allowed to intersecting within the tolerance of the workpiece.&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">seg</span> <span class="ow">in</span> <span class="n">loop</span><span class="p">:</span>
+            <span class="n">seg_dist</span> <span class="o">=</span> <span class="n">geo</span><span class="o">.</span><span class="n">pointSegDistance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">blade_center</span><span class="p">,</span> <span class="n">seg</span><span class="p">,</span> <span class="n">is_max</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">seg_dist</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">saw</span><span class="o">.</span><span class="n">blade</span><span class="o">.</span><span class="n">radius_blade</span> <span class="o">&gt;</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">wkp</span><span class="o">.</span><span class="n">tol</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+    
+<div class="viewcode-block" id="Cut.checkBladeOutsideLoop">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.cut.Cut.checkBladeOutsideLoop">[docs]</a>
+    <span class="k">def</span> <span class="nf">checkBladeOutsideLoop</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loop</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns True if the blade circle does not intersect (or only tangentially </span>
+<span class="sd">        intersects) the loop. Fails if the blade is completely enclosed within the loop.</span>
+<span class="sd">        The blade is allowed to be as close as the tolerance of the workpiece.&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">seg</span> <span class="ow">in</span> <span class="n">loop</span><span class="p">:</span>
+            <span class="n">seg_dist</span> <span class="o">=</span> <span class="n">geo</span><span class="o">.</span><span class="n">pointSegDistance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">blade_center</span><span class="p">,</span> <span class="n">seg</span><span class="p">,</span> <span class="n">is_max</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">seg_dist</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">saw</span><span class="o">.</span><span class="n">blade</span><span class="o">.</span><span class="n">radius_blade</span> <span class="o">&lt;</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">wkp</span><span class="o">.</span><span class="n">tol</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+
+<div class="viewcode-block" id="Cut.findBladeWkpIntxs">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.cut.Cut.findBladeWkpIntxs">[docs]</a>
+    <span class="k">def</span> <span class="nf">findBladeWkpIntxs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loop</span><span class="p">:</span> <span class="nb">list</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Finds the intersection points between the saw blade in its current position </span>
+<span class="sd">        and the workpiece. The blade will enter the wkp every odd point and exit every </span>
+<span class="sd">        even point.&quot;&quot;&quot;</span>
+        <span class="n">intx_pts</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="n">seg_indices</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">seg</span> <span class="ow">in</span> <span class="n">loop</span><span class="p">:</span>
+            <span class="n">points</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">findBladeSegIntxs</span><span class="p">(</span><span class="n">seg</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">points</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">p</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span> 
+                    <span class="n">intx_pts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+                    <span class="n">seg_indices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">loop</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">seg</span><span class="p">))</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">intx_pts</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span> <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="n">intx_pts</span><span class="p">,</span> <span class="n">seg_indices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">arrangeIntxPointsByInOut</span><span class="p">(</span><span class="n">intx_pts</span><span class="p">,</span> <span class="n">seg_indices</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">intx_pts</span><span class="p">,</span> <span class="n">seg_indices</span></div>
+
+    
+<div class="viewcode-block" id="Cut.findBladeSegIntxs">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.cut.Cut.findBladeSegIntxs">[docs]</a>
+    <span class="k">def</span> <span class="nf">findBladeSegIntxs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">seg</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Finds the intersection points between the saw blade and a given line or arc segment.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">seg</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="n">points</span> <span class="o">=</span> <span class="n">geo</span><span class="o">.</span><span class="n">findCircleLineIntersections</span><span class="p">(</span><span class="o">*</span><span class="n">seg</span><span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">blade_center</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">saw</span><span class="o">.</span><span class="n">blade</span><span class="o">.</span><span class="n">radius_blade</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">points</span><span class="o">=</span> <span class="n">geo</span><span class="o">.</span><span class="n">findCircleArcIntersections</span><span class="p">(</span><span class="o">*</span><span class="n">seg</span><span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">blade_center</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">saw</span><span class="o">.</span><span class="n">blade</span><span class="o">.</span><span class="n">radius_blade</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">geo</span><span class="o">.</span><span class="n">checkIfPointsOnSegment</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="n">seg</span><span class="o">=</span><span class="n">seg</span><span class="p">)</span></div>
+
+    
+<div class="viewcode-block" id="Cut.arrangeIntxPointsByInOut">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.cut.Cut.arrangeIntxPointsByInOut">[docs]</a>
+    <span class="k">def</span> <span class="nf">arrangeIntxPointsByInOut</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">intx_pts</span><span class="p">,</span> <span class="n">seg_indices</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the points arranged CCW so that odd points are entry points and even points</span>
+<span class="sd">        are exit points for the blade passing through the wkp.&quot;&quot;&quot;</span>
+        <span class="n">intx_pts</span><span class="p">,</span> <span class="n">seg_indices</span> <span class="o">=</span> <span class="n">geo</span><span class="o">.</span><span class="n">sortPointsByTheta</span><span class="p">(</span><span class="n">intx_pts</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">blade_center</span><span class="p">,</span> <span class="p">[</span><span class="n">seg_indices</span><span class="p">])</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">checkIntxPointsAreInOut</span><span class="p">(</span><span class="o">*</span><span class="n">intx_pts</span><span class="p">[:</span><span class="mi">2</span><span class="p">]):</span>
+            <span class="n">intx_pts</span> <span class="o">=</span> <span class="n">intx_pts</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">:]</span> <span class="o">+</span> <span class="n">intx_pts</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">seg_indices</span> <span class="o">=</span> <span class="n">seg_indices</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">:]</span> <span class="o">+</span> <span class="n">seg_indices</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">intx_pts</span><span class="p">,</span> <span class="n">seg_indices</span></div>
+
+
+<div class="viewcode-block" id="Cut.checkIntxPointsAreInOut">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.cut.Cut.checkIntxPointsAreInOut">[docs]</a>
+    <span class="k">def</span> <span class="nf">checkIntxPointsAreInOut</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">P1</span><span class="p">,</span> <span class="n">P2</span><span class="p">,</span> <span class="n">CW</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Determines if the sequential intersection points are arranged as In/Out or Out/In,</span>
+<span class="sd">        where In indicates the point is where the blade enters the material, and Out is an exit </span>
+<span class="sd">        point. </span>
+<span class="sd">        </span>
+<span class="sd">        Process</span>
+<span class="sd">        -------</span>
+<span class="sd">        Generates a point on the blade circle between the two intersection points and checks if </span>
+<span class="sd">        that point is in the workpiece path. If it is, then the points are arranged In/Out.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">CW</span><span class="p">:</span>
+            <span class="n">check_pt</span> <span class="o">=</span> <span class="n">geo</span><span class="o">.</span><span class="n">generatePointOnArc</span><span class="p">(</span><span class="n">P2</span><span class="p">,</span> <span class="n">P1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">blade_center</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">check_pt</span> <span class="o">=</span> <span class="n">geo</span><span class="o">.</span><span class="n">generatePointOnArc</span><span class="p">(</span><span class="n">P1</span><span class="p">,</span> <span class="n">P2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">blade_center</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">wkp</span><span class="o">.</span><span class="n">pointInLoop</span><span class="p">(</span><span class="n">check_pt</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Cut.calcAverageChipDepth">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.cut.Cut.calcAverageChipDepth">[docs]</a>
+    <span class="k">def</span> <span class="nf">calcAverageChipDepth</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">intx_pts</span><span class="p">,</span> <span class="n">seg_indices</span><span class="p">,</span> <span class="n">loop</span><span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Construed as the average of the distance between the blade circle and path</span>
+<span class="sd">        path.&quot;&quot;&quot;</span>
+        <span class="n">path_heights</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">intx_pts</span><span class="p">),</span> <span class="mi">2</span><span class="p">):</span> <span class="c1">#Index to each odd (entry) intersection point</span>
+            <span class="n">path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">path2PolarDomain</span><span class="p">(</span><span class="n">intx_pts</span><span class="p">[</span><span class="n">p</span><span class="p">:</span><span class="n">p</span><span class="o">+</span><span class="mi">2</span><span class="p">],</span> <span class="n">seg_indices</span><span class="p">[</span><span class="n">p</span><span class="p">:</span><span class="n">p</span><span class="o">+</span><span class="mi">2</span><span class="p">],</span> <span class="n">loop</span><span class="p">)</span>
+            <span class="n">path_heights</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">calcRadialDistanceByPoints</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">path_heights</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Cut.path2PolarDomain">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.cut.Cut.path2PolarDomain">[docs]</a>
+    <span class="k">def</span> <span class="nf">path2PolarDomain</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">intx_pts</span><span class="p">,</span> <span class="n">seg_indices</span><span class="p">,</span> <span class="n">loop</span><span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns a 2D list detailing a closed segment path intersecting the blade circle.</span>
+<span class="sd">        Each entry in the list is of the form: [&lt;polar segment lambda&gt;, &lt;minimum bounding angle&gt;,</span>
+<span class="sd">        &lt;maximum bounding angle&gt;].&quot;&quot;&quot;</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="n">enclosed_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getSegmentsInsideCircle</span><span class="p">(</span><span class="n">intx_pts</span><span class="p">,</span> <span class="n">seg_indices</span><span class="p">,</span> <span class="n">loop</span><span class="p">)</span>
+        <span class="n">segs</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span><span class="p">[:]</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">enclosed_path</span><span class="p">]</span>
+
+        <span class="c1"># Clip interior segments</span>
+        <span class="n">is_pos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">loopIndexingIsPos</span><span class="p">(</span><span class="n">intx_pts</span><span class="p">,</span> <span class="n">seg_indices</span><span class="p">,</span> <span class="n">loop</span><span class="p">)</span>
+        <span class="n">segs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">clipSegment</span><span class="p">(</span><span class="n">segs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">intx_pts</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">is_pos</span><span class="p">,</span> <span class="n">is_in</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">external</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">segs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">clipSegment</span><span class="p">(</span><span class="n">segs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">intx_pts</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">is_pos</span><span class="p">,</span> <span class="n">is_in</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">external</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        
+        <span class="k">for</span> <span class="n">seg</span> <span class="ow">in</span> <span class="n">segs</span><span class="p">:</span>
+            <span class="n">entry</span> <span class="o">=</span> <span class="p">[</span><span class="n">geo</span><span class="o">.</span><span class="n">seg2PolarFun</span><span class="p">(</span><span class="n">seg</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">blade_center</span><span class="p">)]</span>
+            <span class="n">entry</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">geo</span><span class="o">.</span><span class="n">calcBoundingAngles</span><span class="p">(</span><span class="n">seg</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">blade_center</span><span class="p">))</span>
+            <span class="n">path</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">path</span></div>
+
+    
+<div class="viewcode-block" id="Cut.getSegmentsInsideCircle">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.cut.Cut.getSegmentsInsideCircle">[docs]</a>
+    <span class="k">def</span> <span class="nf">getSegmentsInsideCircle</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">intx_pts</span><span class="p">,</span> <span class="n">seg_indices</span><span class="p">,</span> <span class="n">loop</span><span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the two segments listed by seg_indices as well as all segments between</span>
+<span class="sd">        which are enclosed within the circle.&quot;&quot;&quot;</span>
+        <span class="n">n</span><span class="p">,</span> <span class="n">m</span> <span class="o">=</span> <span class="n">seg_indices</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">loopIndexingIsPos</span><span class="p">(</span><span class="n">intx_pts</span><span class="p">,</span> <span class="n">seg_indices</span><span class="p">,</span> <span class="n">loop</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">loopSlice</span><span class="p">(</span><span class="n">loop</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">n</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">loopSlice</span><span class="p">(</span><span class="n">loop</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">m</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span></div>
+
+    
+<div class="viewcode-block" id="Cut.findVertexByIntxPt">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.cut.Cut.findVertexByIntxPt">[docs]</a>
+    <span class="k">def</span> <span class="nf">findVertexByIntxPt</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pt</span><span class="p">,</span> <span class="n">seg</span><span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns a vertex in the loop that whose euclidean distance to the given point,</span>
+<span class="sd">        pt, is less than the workpiece tolerance. If there are no vertices within that distance, </span>
+<span class="sd">        returns None.&quot;&quot;&quot;</span>
+        <span class="n">tol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">wkp</span><span class="o">.</span><span class="n">tol</span>
+        <span class="k">for</span> <span class="n">vtx</span> <span class="ow">in</span> <span class="n">seg</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="n">geo</span><span class="o">.</span><span class="n">pointDistance</span><span class="p">(</span><span class="n">pt</span><span class="p">,</span> <span class="n">vtx</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">tol</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">vtx</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+    
+<div class="viewcode-block" id="Cut.calcRadialDistanceByPoints">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.cut.Cut.calcRadialDistanceByPoints">[docs]</a>
+    <span class="k">def</span> <span class="nf">calcRadialDistanceByPoints</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">profile</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calculates the average distance between a profile and the blade circle.</span>
+<span class="sd">        </span>
+<span class="sd">        Process</span>
+<span class="sd">        -------</span>
+<span class="sd">        1. Profile segments are parameterized in terms of an angle, theta.</span>
+<span class="sd">        1. Each segment is bounded by the minimum and maximum angular coordinate that evaluates </span>
+<span class="sd">        to the segment.</span>
+<span class="sd">        1. The segments are sorted by minimum angular coordinate</span>
+<span class="sd">        1. A list of n thetas is produced at which to check the radial distance of each segment </span>
+<span class="sd">        from the blade center.</span>
+<span class="sd">        1. For each theta: </span>
+<span class="sd">            1. The list of segments is sliced to include all segments that have a radial value </span>
+<span class="sd">            at the theta in question.</span>
+<span class="sd">            1. A list is made of each radial value for all sliced segments at the angle theta.</span>
+<span class="sd">            1. If the list of points is odd, then the profile is bounded by the blade circle at </span>
+<span class="sd">            theta. The radial value for the blade (the blade radius) is added to the list.</span>
+<span class="sd">            1. The distance between each point and it&#39;s successive neighbor is summed and added to</span>
+<span class="sd">            a list of heights at each theta.</span>
+<span class="sd">        1. The function returns the average of the list of heights.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">h</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="n">profile</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">profile</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">l</span> <span class="p">:</span> <span class="n">l</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">theta_min</span> <span class="o">=</span> <span class="n">profile</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">theta_max</span> <span class="o">=</span> <span class="nb">max</span><span class="p">([</span><span class="n">p</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">profile</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">theta</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">theta_min</span><span class="p">,</span> <span class="n">theta_max</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span> <span class="c1">#Check if theta is in range</span>
+            <span class="n">profs_at_theta</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">profile</span> <span class="k">if</span> <span class="n">p</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">theta</span> <span class="ow">and</span> <span class="n">p</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">theta</span><span class="p">]</span>
+            <span class="n">h</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">findRadialHeightAtTheta</span><span class="p">(</span><span class="n">profs_at_theta</span><span class="p">,</span> <span class="n">theta</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">h</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Cut.findRadialHeightAtTheta">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.cut.Cut.findRadialHeightAtTheta">[docs]</a>
+    <span class="k">def</span> <span class="nf">findRadialHeightAtTheta</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">profile</span><span class="p">,</span> <span class="n">theta</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Finds the total height of the chip at the angle theta.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">profile</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span> <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">saw</span><span class="o">.</span><span class="n">blade</span><span class="o">.</span><span class="n">radius_blade</span> <span class="c1">#no intersecting line, bounded by saw</span>
+        <span class="n">rs</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span> <span class="c1">#List of radial heights of the profile at theta</span>
+        <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">profile</span><span class="p">:</span> 
+            <span class="n">rs</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">](</span><span class="n">theta</span><span class="p">))</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">rs</span><span class="p">)</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span> <span class="c1">#chip terminated by blade</span>
+            <span class="n">rs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">saw</span><span class="o">.</span><span class="n">blade</span><span class="o">.</span><span class="n">radius_blade</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">([</span><span class="nb">abs</span><span class="p">(</span><span class="n">rs</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">rs</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">rs</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span><span class="p">)])</span></div>
+
+
+<div class="viewcode-block" id="Cut.restructurePath">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.cut.Cut.restructurePath">[docs]</a>
+    <span class="k">def</span> <span class="nf">restructurePath</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">intx_pts</span><span class="p">,</span> <span class="n">seg_indices</span><span class="p">,</span> <span class="n">loop</span><span class="p">:</span> <span class="nb">list</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Deletes each segment in the workpiece path identified as starting at an odd index in</span>
+<span class="sd">        seg_indices and ending at the following even index in seg_indices. Replaces these segments</span>
+<span class="sd">        with a single arc that starts at the corresponding intersection points and is centered at the</span>
+<span class="sd">        saw blade. Clips intersecting segments to intersection points.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">is_pos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">loopIndexingIsPos</span><span class="p">(</span><span class="n">intx_pts</span><span class="p">,</span> <span class="n">seg_indices</span><span class="p">,</span> <span class="n">loop</span><span class="p">)</span>
+        <span class="n">clipped_segs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getClippedLoopSegments</span><span class="p">(</span><span class="n">intx_pts</span><span class="p">,</span> <span class="n">seg_indices</span><span class="p">,</span> <span class="n">is_pos</span><span class="p">,</span> <span class="n">loop</span><span class="p">)</span>
+        <span class="n">new_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">makeNewPath</span><span class="p">(</span><span class="n">seg_indices</span><span class="p">,</span> <span class="n">clipped_segs</span><span class="p">,</span> <span class="n">is_pos</span><span class="p">,</span> <span class="n">loop</span><span class="p">)</span>
+        
+        <span class="n">p_idxs</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span><span class="o">*</span><span class="mi">2</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">intx_pts</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span><span class="p">)]</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">p_idxs</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">insertCutArc</span><span class="p">(</span><span class="o">*</span><span class="n">intx_pts</span><span class="p">[</span><span class="n">p</span><span class="p">:</span><span class="n">p</span><span class="o">+</span><span class="mi">2</span><span class="p">],</span> <span class="n">is_pos</span><span class="p">,</span> <span class="n">new_path</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">new_path</span></div>
+
+    
+<div class="viewcode-block" id="Cut.getClippedLoopSegments">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.cut.Cut.getClippedLoopSegments">[docs]</a>
+    <span class="k">def</span> <span class="nf">getClippedLoopSegments</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">intx_pts</span><span class="p">,</span> <span class="n">seg_indices</span><span class="p">,</span> <span class="n">is_pos</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">loop</span><span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns a list of the clipped segments that have intersection points. The clipped</span>
+<span class="sd">        segments are the segments exterior to the blade circle (remaining after the cut) and </span>
+<span class="sd">        are indexed by the seg_indices array in the passed loop. </span>
+<span class="sd">        </span>
+<span class="sd">        Note that the intersection points may be updated as a result of the function.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">clipped_segs</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">intx_pts</span><span class="p">)):</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="n">seg_indices</span><span class="p">[</span><span class="n">p</span><span class="p">]</span>
+            <span class="c1">#Check if intx_pt is too close to loop vertex to clip.</span>
+            <span class="n">close_vtx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">findVertexByIntxPt</span><span class="p">(</span><span class="n">intx_pts</span><span class="p">[</span><span class="n">p</span><span class="p">],</span> <span class="n">loop</span><span class="p">[</span><span class="n">seg_indices</span><span class="p">[</span><span class="n">p</span><span class="p">]])</span>
+            <span class="k">if</span> <span class="n">close_vtx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span> 
+                <span class="n">c_s</span> <span class="o">=</span> <span class="n">loop</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+                <span class="n">intx_pts</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="n">close_vtx</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">is_in</span> <span class="o">=</span> <span class="n">p</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span>
+                <span class="n">c_s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">clipSegment</span><span class="p">(</span><span class="n">loop</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="n">intx_pts</span><span class="p">[</span><span class="n">p</span><span class="p">],</span> <span class="n">is_pos</span><span class="p">,</span> <span class="n">is_in</span><span class="p">)</span>
+
+            <span class="n">clipped_segs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">c_s</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">clipped_segs</span></div>
+
+    
+<div class="viewcode-block" id="Cut.clipSegment">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.cut.Cut.clipSegment">[docs]</a>
+    <span class="k">def</span> <span class="nf">clipSegment</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">seg</span><span class="p">,</span> <span class="n">pt</span><span class="p">,</span> <span class="n">is_pos</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">is_in</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">external</span><span class="p">:</span> <span class="nb">bool</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the clipped segment that must start at pt (an intersection point) and end at</span>
+<span class="sd">        either endpoint in the segment (seg).</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        seg : array_like</span>
+<span class="sd">            The segment to clip, either 1x2 or 1x3 array of 1x2 point arrays.</span>
+<span class="sd">        pt : array_like</span>
+<span class="sd">            The intersection point to clip to, as a 1x2 point array.</span>
+<span class="sd">        is_pos : bool</span>
+<span class="sd">            Indicates that the workpiece loop is defined in a CCW method so that the a cut starts</span>
+<span class="sd">            at segment i, and then passes through segments i+1...i+n-1 until reaching the out </span>
+<span class="sd">            segment.</span>
+<span class="sd">        is_in : bool</span>
+<span class="sd">            Indicates that the intersection point considered is an entry point for the blade</span>
+<span class="sd">            versus and exit point.</span>
+<span class="sd">        external : bool, default=True</span>
+<span class="sd">            True if the returned segment should be the portion of the segment exterior to the </span>
+<span class="sd">            blade circle (remaining) or interior (removed).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">possible_clippings</span> <span class="o">=</span> <span class="p">[[</span><span class="n">pt</span><span class="p">,</span> <span class="n">seg</span><span class="p">[</span><span class="mi">1</span><span class="p">]],</span> <span class="p">[</span><span class="n">seg</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">pt</span><span class="p">]]</span>
+        <span class="k">if</span> <span class="n">external</span> <span class="o">!=</span> <span class="n">is_pos</span><span class="p">:</span> <span class="n">possible_clippings</span><span class="o">.</span><span class="n">reverse</span><span class="p">()</span>
+        <span class="n">clipped_seg</span> <span class="o">=</span> <span class="n">possible_clippings</span><span class="p">[</span><span class="n">is_in</span><span class="o">^</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="c1"># Generate additional point for arcs</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">seg</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span> 
+            <span class="n">clipped_seg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">generateClippedArcSeg</span><span class="p">(</span><span class="n">seg</span><span class="p">,</span> <span class="n">clipped_seg</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">clipped_seg</span></div>
+
+    
+<div class="viewcode-block" id="Cut.generateClippedArcSeg">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.cut.Cut.generateClippedArcSeg">[docs]</a>
+    <span class="k">def</span> <span class="nf">generateClippedArcSeg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arc_seg</span><span class="p">,</span> <span class="n">endpoints</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generates an arbitrary segement for an arc bounded by the endpoints and coincident</span>
+<span class="sd">        with the arc segment.&quot;&quot;&quot;</span>
+        <span class="n">arc_center</span> <span class="o">=</span> <span class="n">geo</span><span class="o">.</span><span class="n">calcCircleCenter</span><span class="p">(</span><span class="o">*</span><span class="n">arc_seg</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">geo</span><span class="o">.</span><span class="n">arcIsCCW</span><span class="p">(</span><span class="o">*</span><span class="n">arc_seg</span><span class="p">,</span> <span class="n">arc_center</span><span class="p">):</span>
+            <span class="n">endpoints</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">geo</span><span class="o">.</span><span class="n">generatePointOnArc</span><span class="p">(</span><span class="o">*</span><span class="nb">reversed</span><span class="p">(</span><span class="n">endpoints</span><span class="p">),</span> <span class="n">arc_center</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">endpoints</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">geo</span><span class="o">.</span><span class="n">generatePointOnArc</span><span class="p">(</span><span class="o">*</span><span class="n">endpoints</span><span class="p">,</span> <span class="n">arc_center</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">endpoints</span></div>
+
+
+<div class="viewcode-block" id="Cut.loopIndexingIsPos">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.cut.Cut.loopIndexingIsPos">[docs]</a>
+    <span class="k">def</span> <span class="nf">loopIndexingIsPos</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">intx_pts</span><span class="p">,</span> <span class="n">seg_indices</span><span class="p">,</span> <span class="n">loop</span><span class="p">:</span> <span class="nb">list</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns True if the segment indices for the loop starting at the point A on the </span>
+<span class="sd">        segment located at index i_in is positive or negative incrementing. That is, if the remaining </span>
+<span class="sd">        loop is composed of segments at [i_in, i_in+1, i_in+2, ..., i_in+k, i_out] or the segments at </span>
+<span class="sd">        [i_in, i_in-1, i_in-2, ..., i_in-k, i_out].&quot;&quot;&quot;</span>
+        <span class="n">i_in</span> <span class="o">=</span> <span class="n">seg_indices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">pt_in</span> <span class="o">=</span> <span class="n">intx_pts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">pt_indices</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">seg_indices</span><span class="p">))</span> <span class="k">if</span> <span class="n">seg_indices</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="n">i_in</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">pt_indices</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">:</span> <span class="c1">#2 intersections on segment</span>
+            <span class="n">A</span><span class="p">,</span> <span class="n">B</span> <span class="o">=</span> <span class="p">[</span><span class="n">intx_pts</span><span class="p">[</span><span class="n">a</span><span class="p">]</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">pt_indices</span><span class="p">]</span>
+            <span class="n">pt_out</span> <span class="o">=</span> <span class="n">A</span> <span class="k">if</span> <span class="n">B</span> <span class="o">==</span> <span class="n">pt_in</span> <span class="k">else</span> <span class="n">B</span>
+            <span class="n">t_in</span> <span class="o">=</span> <span class="n">geo</span><span class="o">.</span><span class="n">calcParameterizedPointOnSeg</span><span class="p">(</span><span class="n">pt_in</span><span class="p">,</span> <span class="n">loop</span><span class="p">[</span><span class="n">i_in</span><span class="p">])</span>
+            <span class="n">t_out</span> <span class="o">=</span> <span class="n">geo</span><span class="o">.</span><span class="n">calcParameterizedPointOnSeg</span><span class="p">(</span><span class="n">pt_out</span><span class="p">,</span> <span class="n">loop</span><span class="p">[</span><span class="n">i_in</span><span class="p">])</span>
+            <span class="k">return</span> <span class="n">t_in</span> <span class="o">&gt;</span> <span class="n">t_out</span>
+
+        <span class="n">next_pt</span> <span class="o">=</span> <span class="n">loop</span><span class="p">[(</span><span class="n">i_in</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">loop</span><span class="p">)][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">isPos</span> <span class="o">=</span> <span class="ow">not</span> <span class="n">geo</span><span class="o">.</span><span class="n">checkPointInCircle</span><span class="p">(</span><span class="n">next_pt</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">blade_center</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">saw</span><span class="o">.</span><span class="n">blade</span><span class="o">.</span><span class="n">radius_blade</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">isPos</span></div>
+
+
+<div class="viewcode-block" id="Cut.makeNewPath">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.cut.Cut.makeNewPath">[docs]</a>
+    <span class="k">def</span> <span class="nf">makeNewPath</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">seg_indices</span><span class="p">,</span> <span class="n">clipped_segs</span><span class="p">,</span> <span class="n">is_pos</span><span class="p">,</span> <span class="n">loop</span><span class="p">:</span> <span class="nb">list</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns a new path containing all the segments between the indices i_in and i_out that</span>
+<span class="sd">        are outside of the blade circle. The path needs to be cleaned to identify possible loops.&quot;&quot;&quot;</span>
+        <span class="n">num_segs</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">loop</span><span class="p">)</span>
+        <span class="n">new_lp</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+
+        <span class="n">i</span> <span class="o">=</span> <span class="n">seg_indices</span><span class="p">[</span><span class="n">is_pos</span><span class="p">]</span>
+        <span class="n">not_visited_ps</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">is_pos</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">seg_indices</span><span class="p">),</span> <span class="mi">2</span><span class="p">)]</span> <span class="c1">#all out/in segs</span>
+        <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">not_visited_ps</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">p</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">findNextClippedSegIdx</span><span class="p">(</span><span class="n">not_visited_ps</span><span class="p">,</span> <span class="n">seg_indices</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+            <span class="n">p</span><span class="p">,</span> <span class="n">c_s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">findNextClippedSegs</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">clipped_segs</span><span class="p">,</span> <span class="n">is_pos</span><span class="p">)</span>
+            <span class="n">new_lp</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">c_s</span><span class="p">)</span>
+
+            <span class="c1"># Append non-intersecting, non-enclosed segments</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="p">(</span><span class="n">seg_indices</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="n">num_segs</span>
+            <span class="k">while</span> <span class="n">i</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">seg_indices</span><span class="p">:</span>
+                <span class="n">new_lp</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">loop</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+                <span class="n">i</span> <span class="o">=</span> <span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="n">num_segs</span>
+
+        <span class="k">return</span> <span class="n">new_lp</span></div>
+
+    
+<div class="viewcode-block" id="Cut.findNextClippedSegIdx">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.cut.Cut.findNextClippedSegIdx">[docs]</a>
+    <span class="k">def</span> <span class="nf">findNextClippedSegIdx</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">not_visited_ps</span><span class="p">,</span> <span class="n">seg_indices</span><span class="p">,</span> <span class="n">i</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the index for the next clipped segment in the path, with the direction</span>
+<span class="sd">        decided by the indexing of the loop. Deletes the index from the not_visited_ps</span>
+<span class="sd">        list.&quot;&quot;&quot;</span>
+        <span class="n">found</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">not_visited_ps</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">seg_indices</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">==</span> <span class="n">i</span><span class="p">:</span>
+                <span class="n">p</span> <span class="o">=</span> <span class="n">j</span>
+                <span class="n">found</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">found</span><span class="p">:</span> <span class="n">p</span> <span class="o">=</span> <span class="n">not_visited_ps</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">del</span><span class="p">(</span><span class="n">not_visited_ps</span><span class="p">[</span><span class="n">not_visited_ps</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">p</span><span class="p">)])</span>
+        <span class="k">return</span> <span class="n">p</span></div>
+
+    
+<div class="viewcode-block" id="Cut.findNextClippedSegs">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.cut.Cut.findNextClippedSegs">[docs]</a>
+    <span class="k">def</span> <span class="nf">findNextClippedSegs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">clipped_segs</span><span class="p">,</span> <span class="n">is_pos</span><span class="p">:</span> <span class="nb">bool</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the set of clipped segments in order based on the index of the next</span>
+<span class="sd">        connecting segment, p. The connecting segment is out/in based on if is_pos is </span>
+<span class="sd">        True/False.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">is_pos</span><span class="p">:</span>  <span class="c1">#enclosed segs: out -&gt; in</span>
+            <span class="n">c_s</span> <span class="o">=</span> <span class="p">[</span><span class="n">clipped_segs</span><span class="p">[</span><span class="n">p</span><span class="p">],</span> <span class="n">clipped_segs</span><span class="p">[</span><span class="n">p</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
+            <span class="n">p</span> <span class="o">-=</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>   <span class="c1">#remaining segs: out -&gt; in</span>
+            <span class="n">c_s</span> <span class="o">=</span> <span class="n">clipped_segs</span><span class="p">[</span><span class="n">p</span><span class="p">:</span><span class="n">p</span><span class="o">+</span><span class="mi">2</span><span class="p">]</span>
+            <span class="n">p</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="n">p</span><span class="p">,</span> <span class="n">c_s</span></div>
+
+
+<div class="viewcode-block" id="Cut.insertCutArc">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.cut.Cut.insertCutArc">[docs]</a>
+    <span class="k">def</span> <span class="nf">insertCutArc</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">is_pos</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">loop</span><span class="p">:</span> <span class="nb">list</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Inserts an arc coicident with the blade circle and terminated by points A</span>
+<span class="sd">        and B. Fails if the workpiece profile is crossed (not simple).&quot;&quot;&quot;</span>
+        <span class="n">point_on_arc</span> <span class="o">=</span> <span class="n">geo</span><span class="o">.</span><span class="n">generatePointOnArc</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">blade_center</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">is_pos</span><span class="p">:</span>
+            <span class="n">arc</span> <span class="o">=</span> <span class="p">[</span><span class="n">B</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">point_on_arc</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">arc</span> <span class="o">=</span> <span class="p">[</span><span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">point_on_arc</span><span class="p">]</span>
+        <span class="n">arc_start_i</span> <span class="o">=</span> <span class="p">[</span><span class="n">pt</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">pt</span> <span class="ow">in</span> <span class="n">loop</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">arc</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">loop</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">arc_start_i</span><span class="p">,</span> <span class="n">arc</span><span class="p">)</span></div>
+</div>
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">DT-Chop_Saw 0.1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">src.objects.cut</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2023, John_Morris.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.2.6.
+    </div>
+  </body>
+</html>

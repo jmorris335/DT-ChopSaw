@@ -1,0 +1,393 @@
+
+
+<!doctype html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>src.objects.workpiece &#8212; DT-Chop_Saw 0.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=649a27d8" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/bizstyle.css?v=532c1bf3" />
+    
+    <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
+    <script src="../../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/bizstyle.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <!--[if lt IE 9]>
+    <script src="_static/css3-mediaqueries.js"></script>
+    <![endif]-->
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">DT-Chop_Saw 0.1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">src.objects.workpiece</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for src.objects.workpiece</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">| File: workpiece.py </span>
+<span class="sd">| Info: Presents a model for a constant-profile workpiece that can be cut on a saw.</span>
+<span class="sd">| Author: John Morris, jhmrrs@clemson.edu  </span>
+<span class="sd">| Organization: Product Lifecycle Management Center at Clemson University, plmcenter@clemson.edu  </span>
+<span class="sd">| Permission: Copyright (C) 2023, John Morris. All rights reserved. Should not be reproduced, edited, sourced, or utilized without written permission from the author or organization</span>
+<span class="sd">| Version History:</span>
+<span class="sd">| - 0.1, 18 Jan 2024: Initialized</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">matplotlib.patches</span> <span class="kn">import</span> <span class="n">PathPatch</span>
+<span class="kn">from</span> <span class="nn">matplotlib.path</span> <span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">import</span> <span class="nn">src.auxiliary.geometry</span> <span class="k">as</span> <span class="nn">geo</span>
+<span class="kn">from</span> <span class="nn">src.db.logger</span> <span class="kn">import</span> <span class="n">Logger</span>
+<span class="kn">import</span> <span class="nn">src.gui.gui_support</span> <span class="k">as</span> <span class="nn">gui</span>
+<span class="kn">from</span> <span class="nn">src.objects.twin</span> <span class="kn">import</span> <span class="n">Twin</span>
+<span class="kn">from</span> <span class="nn">src.auxiliary.support</span> <span class="kn">import</span> <span class="n">findDefault</span><span class="p">,</span> <span class="n">findDepth</span>
+
+<div class="viewcode-block" id="Workpiece">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.workpiece.Workpiece">[docs]</a>
+<span class="k">class</span> <span class="nc">Workpiece</span><span class="p">(</span><span class="n">Twin</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    A workpiece that operations can be performed on. For now assumed to have a constant profile.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    loops : list, default=None; meters</span>
+<span class="sd">            A list (len n) of lists (len 2,3) of lists (len 2). Each minor list represents a vertex</span>
+<span class="sd">            (x,y coordinate pair) on the cross-section of the workpiece. The major list represents </span>
+<span class="sd">            each segment that makes up that cross-section profile. See note.</span>
+<span class="sd">    **kwargs : dict, optional</span>
+<span class="sd">        Optional editing of state variables during initialization. Possible arguments are:</span>
+
+<span class="sd">        E : float, default=69e9 Pa</span>
+<span class="sd">            Young&#39;s modulus for the workpiece.</span>
+<span class="sd">        L : float, default=1 meter</span>
+<span class="sd">            Length of the workpiece.</span>
+<span class="sd">        tol : float, default=1e-9 meters</span>
+<span class="sd">            Tolerance for differentiating between points. No segment should be shorter than the </span>
+<span class="sd">            provided tolerance.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    1. Creating the loops: </span>
+<span class="sd">        1. The cross-section is assumed to be constant throughout the piece. </span>
+<span class="sd">        1. A representative cross-section can be composed of line segments and arc segments. The first </span>
+<span class="sd">        two points are always the end points of a segment. Because segments must be in order,</span>
+<span class="sd">        this means that the first point of any segment will always be the same as the second point in</span>
+<span class="sd">        the segment preceeding it. </span>
+<span class="sd">        1. Arc segments are given a third point, which can be any arbitrary </span>
+<span class="sd">        point on the arc. Note that full circles are not allowed, instead break the path into two </span>
+<span class="sd">        hemispheres. </span>
+<span class="sd">        1. The profile may include multiple closed loops, where each segment shares a point</span>
+<span class="sd">        with another segment in the loop. A full profile may not have loops that intersect or that</span>
+<span class="sd">        enclose one other.</span>
+
+<span class="sd">    Example</span>
+<span class="sd">    -------</span>
+<span class="sd">        ```</span>
+<span class="sd">        # Square, 10 cm wide beam </span>
+<span class="sd">        path = list()</span>
+<span class="sd">        path.append([[0,0], [1,0]])</span>
+<span class="sd">        path.append([[1,0], [1,1]])</span>
+<span class="sd">        path.append([[1,1], [0,1]])</span>
+<span class="sd">        path.append([[0,1], [0,0]]) #Optional to close path</span>
+<span class="sd">        wkp_square = Workpiece(path=path)</span>
+
+<span class="sd">        # Circular, 10 cm wide beam</span>
+<span class="sd">        path = list()</span>
+<span class="sd">        path.append([[1,0], [-1,0], [0,1]]) #Top hemisphere</span>
+<span class="sd">        path.append([[-1,0], [1,0], [0,-1]]) #Bottom hemisphere</span>
+<span class="sd">        wkp_circle = Workpiece(path=path)</span>
+<span class="sd">        ```</span>
+
+<span class="sd">    TODO: Make the path member a function that returns the profile at a specific length</span>
+<span class="sd">    TODO: Make a function that transforms the profile path for different miter angles</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loops</span><span class="p">:</span><span class="nb">list</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">Twin</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+        <span class="c1">#Static Values</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="s2">&quot;workpiece&quot;</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">E</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">69e9</span><span class="p">,</span> <span class="s2">&quot;E&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">L</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">1.</span><span class="p">,</span> <span class="s2">&quot;L&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tol</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">1e-7</span><span class="p">,</span> <span class="s2">&quot;tol&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="c1"># Dynamic Values</span>
+        <span class="n">temp_loops</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cleanLoops</span><span class="p">(</span><span class="n">loops</span> <span class="k">if</span> <span class="n">loops</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">defaultPath</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">loops</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">shiftPositive</span><span class="p">(</span><span class="n">temp_loops</span><span class="p">)</span>
+
+        <span class="c1"># Twin inherited methods/attributes overloading</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span> <span class="o">=</span> <span class="n">Logger</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">patches</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">plot</span><span class="p">()</span>
+
+<div class="viewcode-block" id="Workpiece.cleanLoops">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.workpiece.Workpiece.cleanLoops">[docs]</a>
+    <span class="k">def</span> <span class="nf">cleanLoops</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">segs</span><span class="p">:</span> <span class="nb">list</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Cleans the list of points that comprise the cross-sectional path. Will not perfectly </span>
+<span class="sd">        make a profile, but will close open profiles, and check that all points are valid coordinate</span>
+<span class="sd">        tuples. </span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        -----------</span>
+<span class="sd">        points : list, optional</span>
+<span class="sd">            A list of tuples all with a length of 2, representing the vertices (x, y) of</span>
+<span class="sd">            the profile of the workpiece. If not provided, function accesses internal path member.</span>
+
+<span class="sd">            Note origin of the coordinate system is at the intersection of the table and guard of the saw.</span>
+<span class="sd">            Any coordinate set will be shifted so that the leftmost x and bottommost y is 0.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">segs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span> <span class="n">segs</span> <span class="o">=</span> <span class="p">[</span><span class="n">seg</span> <span class="k">for</span> <span class="n">loop</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">loops</span> <span class="k">for</span> <span class="n">seg</span> <span class="ow">in</span> <span class="n">loop</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">findDepth</span><span class="p">(</span><span class="n">segs</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span> <span class="c1">#Inputted loops instead of segs</span>
+            <span class="n">segs</span> <span class="o">=</span> <span class="p">[</span><span class="n">seg</span> <span class="k">for</span> <span class="n">loop</span> <span class="ow">in</span> <span class="n">segs</span> <span class="k">for</span> <span class="n">seg</span> <span class="ow">in</span> <span class="n">loop</span><span class="p">]</span>
+        <span class="n">loops</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">findLoops</span><span class="p">(</span><span class="n">segs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">loops</span></div>
+
+    
+<div class="viewcode-block" id="Workpiece.findLoops">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.workpiece.Workpiece.findLoops">[docs]</a>
+    <span class="k">def</span> <span class="nf">findLoops</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">segs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns a list of enclosed loops from the set of segments. Segments must be ordered.&quot;&quot;&quot;</span>
+        <span class="n">loops</span><span class="p">,</span> <span class="n">loop</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(),</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="n">close_loop</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">l</span> <span class="p">:</span> <span class="n">l</span> <span class="o">+</span> <span class="p">[[</span><span class="n">l</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span> <span class="n">l</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]]]</span>
+        <span class="k">for</span> <span class="n">seg</span> <span class="ow">in</span> <span class="n">segs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">loop</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">seg</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">loop</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]:</span>
+                    <span class="n">loops</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">loop</span> <span class="o">+</span> <span class="p">[</span><span class="n">seg</span><span class="p">])</span>
+                    <span class="n">loop</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+                    <span class="k">continue</span>
+                <span class="k">elif</span> <span class="n">seg</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">loop</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]:</span>
+                    <span class="n">loops</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">close_loop</span><span class="p">(</span><span class="n">loop</span><span class="p">))</span>
+                    <span class="n">loop</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+            <span class="n">loop</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">seg</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">loop</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">loops</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">close_loop</span><span class="p">(</span><span class="n">loop</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">validateLoops</span><span class="p">(</span><span class="n">loops</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">loops</span></div>
+
+    
+<div class="viewcode-block" id="Workpiece.validateLoops">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.workpiece.Workpiece.validateLoops">[docs]</a>
+    <span class="k">def</span> <span class="nf">validateLoops</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loops</span><span class="p">:</span> <span class="nb">list</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Makes sure that all loops are composed of valid segments.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">loops</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span> <span class="n">loops</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">loops</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">loop</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">loops</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">seg</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">loop</span><span class="p">):</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">seg</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">3</span><span class="p">:</span> <span class="n">seg</span> <span class="o">=</span> <span class="n">seg</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">3</span><span class="p">]</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">seg</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">geo</span><span class="o">.</span><span class="n">pointDistance</span><span class="p">(</span><span class="n">seg</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">seg</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">tol</span><span class="p">:</span>
+                    <span class="k">del</span><span class="p">(</span><span class="n">loop</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">loop</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                        <span class="n">prev_seg</span> <span class="o">=</span> <span class="n">loop</span><span class="p">[(</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">loop</span><span class="p">)]</span>
+                        <span class="n">next_seg</span> <span class="o">=</span> <span class="n">loop</span><span class="p">[(</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">loop</span><span class="p">)]</span>
+                        <span class="n">prev_seg</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">next_seg</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">loop</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span> 
+                <span class="k">del</span><span class="p">(</span><span class="n">loops</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">loops</span></div>
+
+    
+<div class="viewcode-block" id="Workpiece.shiftPositive">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.workpiece.Workpiece.shiftPositive">[docs]</a>
+    <span class="k">def</span> <span class="nf">shiftPositive</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loops</span><span class="p">:</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Shifts the points so that all points are in the First Quadrant (positive) and, </span>
+<span class="sd">        if possible, at least 1 point is at the origin. Only shifts in the XY plane.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">loops</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span> <span class="n">loops</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">loops</span>
+        <span class="n">minx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">findMinimumCoord</span><span class="p">(</span><span class="n">loops</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">miny</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">findMinimumCoord</span><span class="p">(</span><span class="n">loops</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">loop</span> <span class="ow">in</span> <span class="n">loops</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">seg</span> <span class="ow">in</span> <span class="n">loop</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">point</span> <span class="ow">in</span> <span class="n">seg</span><span class="p">:</span>
+                    <span class="n">point</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-=</span> <span class="n">minx</span>
+                    <span class="n">point</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-=</span> <span class="n">miny</span>
+        <span class="k">return</span> <span class="n">loops</span></div>
+
+
+<div class="viewcode-block" id="Workpiece.findMinimumCoord">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.workpiece.Workpiece.findMinimumCoord">[docs]</a>
+    <span class="k">def</span> <span class="nf">findMinimumCoord</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loops</span><span class="p">:</span> <span class="nb">list</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">index</span><span class="p">:</span> <span class="nb">int</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the most negative coordinate in the loops set.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        loops : list, optional</span>
+<span class="sd">            A list of loops, each defined as a list of segments.</span>
+<span class="sd">        index : int, default=0</span>
+<span class="sd">            The index of the coordinate to minimize.</span>
+
+<span class="sd">        Return</span>
+<span class="sd">        ------</span>
+<span class="sd">        any: the minimum coordinate at the specified index in the set</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">loops</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span> <span class="n">loops</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">loops</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">loops</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span> <span class="k">return</span> <span class="mf">0.</span>
+        <span class="n">min_pt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+        <span class="k">for</span> <span class="n">loop</span> <span class="ow">in</span> <span class="n">loops</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">seg</span> <span class="ow">in</span> <span class="n">loop</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">seg</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span> <span class="c1">#line</span>
+                    <span class="n">a</span> <span class="o">=</span> <span class="n">geo</span><span class="o">.</span><span class="n">findMinimumCoordOnLine</span><span class="p">(</span><span class="n">seg</span><span class="p">,</span> <span class="n">index</span><span class="p">)</span> 
+                <span class="k">else</span><span class="p">:</span> <span class="c1">#arc</span>
+                    <span class="n">a</span> <span class="o">=</span> <span class="n">geo</span><span class="o">.</span><span class="n">findExtremaOnArc</span><span class="p">(</span><span class="n">seg</span><span class="p">,</span> <span class="n">index</span><span class="o">+</span><span class="mi">2</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">a</span> <span class="o">&lt;</span> <span class="n">min_pt</span><span class="p">:</span> 
+                    <span class="n">min_pt</span> <span class="o">=</span> <span class="n">a</span>
+        <span class="k">return</span> <span class="n">min_pt</span></div>
+
+    
+<div class="viewcode-block" id="Workpiece.plot">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.workpiece.Workpiece.plot">[docs]</a>
+    <span class="k">def</span> <span class="nf">plot</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns a list of matplotlib PathPatch objects defining the boundary of the object.&quot;&quot;&quot;</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">makePath</span><span class="p">()</span>
+        <span class="n">patch</span> <span class="o">=</span> <span class="n">PathPatch</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">fc</span><span class="o">=</span><span class="s2">&quot;silver&quot;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">ec</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Workpiece&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">patch</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="Workpiece.makePath">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.workpiece.Workpiece.makePath">[docs]</a>
+    <span class="k">def</span> <span class="nf">makePath</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generates single Path object from workpiece loops.&quot;&quot;&quot;</span>
+        <span class="n">vertices</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="n">codes</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">loops</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span> 
+            <span class="k">return</span> <span class="n">Path</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">]],</span> <span class="p">[</span><span class="n">Path</span><span class="o">.</span><span class="n">MOVETO</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">loop</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">loops</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">loop</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span> <span class="k">continue</span>
+            <span class="n">vertices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">loop</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">codes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Path</span><span class="o">.</span><span class="n">MOVETO</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">seg</span> <span class="ow">in</span> <span class="n">loop</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">seg</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span> 
+                    <span class="n">vertices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">seg</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+                    <span class="n">codes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Path</span><span class="o">.</span><span class="n">LINETO</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">vertices</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">gui</span><span class="o">.</span><span class="n">arc2Bezier</span><span class="p">(</span><span class="o">*</span><span class="n">seg</span><span class="p">)[</span><span class="mi">1</span><span class="p">:])</span>
+                    <span class="n">codes</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">gui</span><span class="o">.</span><span class="n">arcCommands</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">Path</span><span class="p">(</span><span class="n">vertices</span><span class="p">,</span> <span class="n">codes</span><span class="p">)</span></div>
+
+    
+<div class="viewcode-block" id="Workpiece.updatePatches">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.workpiece.Workpiece.updatePatches">[docs]</a>
+    <span class="k">def</span> <span class="nf">updatePatches</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Updates the patch of the wkp with wkp path.&quot;&quot;&quot;</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">makePath</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">patches</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Workpiece.pointInLoop">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.workpiece.Workpiece.pointInLoop">[docs]</a>
+    <span class="k">def</span> <span class="nf">pointInLoop</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">P</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns True if the point lies within the workpiece loops. Points on the boundary are</span>
+<span class="sd">        treated as being outside the loops.</span>
+<span class="sd">        </span>
+<span class="sd">        Process</span>
+<span class="sd">        -------</span>
+<span class="sd">        1. Create bounding box around path.</span>
+<span class="sd">        1. Identify point on a horizontal line the left of the bounding box (ensured to be outside</span>
+<span class="sd">        the profile).</span>
+<span class="sd">        1. Make a ray from the outside point to point P and count how many times the path intersects</span>
+<span class="sd">        the ray. An odd number of intersections indicates that P is on the interior of the path. </span>
+
+<span class="sd">        Edge Cases</span>
+<span class="sd">        ----------</span>
+<span class="sd">        - Intersections with horizontal lines are treated as no intersection occuring. </span>
+<span class="sd">        - For intersections with vertices, only odd segments are counted.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">x_outside</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">findMinimumCoord</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="p">(</span><span class="n">x_outside</span><span class="p">,</span> <span class="n">P</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="n">crosses</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">loop</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">loops</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">seg</span> <span class="ow">in</span> <span class="n">loop</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">seg</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
+                    <span class="n">intx_pts</span> <span class="o">=</span> <span class="p">[</span><span class="n">geo</span><span class="o">.</span><span class="n">findLineLineIntersections</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">P</span><span class="p">,</span> <span class="o">*</span><span class="n">seg</span><span class="p">)]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">intx_pts</span> <span class="o">=</span> <span class="n">geo</span><span class="o">.</span><span class="n">findCircleLineIntersections</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">P</span><span class="p">,</span> <span class="o">*</span><span class="n">seg</span><span class="p">)</span>
+
+                <span class="k">for</span> <span class="n">intx_pt</span> <span class="ow">in</span> <span class="n">intx_pts</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">intx_pt</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span> <span class="k">continue</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">seg</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
+                        <span class="n">bounded</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">geo</span><span class="o">.</span><span class="n">checkIfPointsOnLine</span><span class="p">([</span><span class="n">intx_pt</span><span class="p">],</span> <span class="o">*</span><span class="n">seg</span><span class="p">[:</span><span class="mi">2</span><span class="p">]))</span> <span class="o">&gt;</span> <span class="mi">0</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">bounded</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">geo</span><span class="o">.</span><span class="n">checkIfPointsOnArc</span><span class="p">([</span><span class="n">intx_pt</span><span class="p">],</span> <span class="o">*</span><span class="n">seg</span><span class="p">))</span>
+                    <span class="c1">#TODO: Does the intx_pt ever exist NOT on line(A, P) if it is bounded on the seg?</span>
+                    <span class="n">bounded</span> <span class="o">*=</span> <span class="nb">len</span><span class="p">(</span><span class="n">geo</span><span class="o">.</span><span class="n">checkIfPointsOnLine</span><span class="p">([</span><span class="n">intx_pt</span><span class="p">],</span> <span class="n">A</span><span class="p">,</span> <span class="n">P</span><span class="p">))</span> <span class="o">&gt;</span> <span class="mi">0</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">bounded</span><span class="p">:</span> <span class="k">continue</span>
+                    
+                    <span class="n">at_vertex</span> <span class="o">=</span> <span class="n">geo</span><span class="o">.</span><span class="n">pointDistance</span><span class="p">(</span><span class="n">intx_pt</span><span class="p">,</span> <span class="n">seg</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">tol</span>
+                    <span class="n">at_vertex</span> <span class="o">*=</span> <span class="n">geo</span><span class="o">.</span><span class="n">pointDistance</span><span class="p">(</span><span class="n">intx_pt</span><span class="p">,</span> <span class="n">seg</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">tol</span>
+                    <span class="k">if</span> <span class="n">at_vertex</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">loops</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">seg</span><span class="p">)</span> <span class="o">%</span> <span class="mi">2</span><span class="p">:</span> <span class="n">crosses</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">crosses</span> <span class="o">+=</span> <span class="mi">1</span>
+        
+        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">crosses</span> <span class="o">%</span> <span class="mi">2</span><span class="p">)</span></div>
+</div>
+
+
+<div class="viewcode-block" id="defaultPath">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.workpiece.defaultPath">[docs]</a>
+<span class="k">def</span> <span class="nf">defaultPath</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Makes the path of a square, 10 cm wide beam.&quot;&quot;&quot;</span>
+    <span class="n">path</span> <span class="o">=</span> <span class="p">[[[</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">]]]</span>
+    <span class="n">path</span><span class="o">.</span><span class="n">append</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">]])</span>
+    <span class="n">path</span><span class="o">.</span><span class="n">append</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">]])</span>
+    <span class="n">path</span><span class="o">.</span><span class="n">append</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">]])</span>
+    <span class="k">return</span> <span class="n">path</span></div>
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">DT-Chop_Saw 0.1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">src.objects.workpiece</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2023, John_Morris.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.2.6.
+    </div>
+  </body>
+</html>
