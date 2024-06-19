@@ -20,8 +20,8 @@ jobs:
       - name: Move Docs to Root
         run: |
           mkdir -p temproot
-          cp -r build/html/* temproot/
-          mv temproot/* .
+          cp -r ./docs/build/html/* temproot/
+          mv temproot/* ./docs
           rm -rf temproot
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
