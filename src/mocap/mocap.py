@@ -23,9 +23,307 @@ import threading
 from src.mocap.calibration import calibCamIntrinsic, stereoCalibration
 from src.mocap.camera_interface import VideoInterface
 from src.mocap.markers import Marker, Aruco
-from src.auxiliary.geometry import pointDistance
+from src.auxiliary.geometry import pointDistance, shiftPoints
+from src.auxiliary.transform import Transform
 from src.db.actor import DBActor
 
+log.basicConfig(level=log.DEBUG)
+
+__slots__ = ("label", "db_id", "value")
+class Param:
+    """Container for a generic parameter to be inserted into the DB."""
+    def __init__(self, label: str, db_id: int=-1, value: float=0.0):
+        self.label = label
+        self.db_id = db_id       
+        self.value = value
+    
+def startMocap(camera1, camera2, projection_mtrxs: list=None, calib_frames=None):
+    """Caller for the motion capture process"""
+    cameras = openCameras([camera1, camera2])
+    if projection_mtrxs is None:
+        if calib_frames is None:
+            calib_frames = getCalibrationFrames()
+        proj_mtrxs, cam_mtrxs, dist_coefs = calibrate(calib_frames)
+
+    doMocap(cameras, proj_mtrxs, cam_mtrxs, dist_coefs)
+    releaseCameras(cameras)
+
+def openCameras(cameras: list):
+    """Opens the cameras."""
+    return [cv.VideoCapture(cam) for cam in cameras]
+
+def getCalibrationFrames(camera_ids: list=[0, 1]) -> list:
+    """Opens cameras and collects calibration images."""
+    dir_path = "src/mocap/media"
+    num_frames = 12
+    vi = VideoInterface([0, 1], dir_path=dir_path)
+    vi.getCalibrationFrames()
+    calib_frames = [
+        [f"{dir_path}/calib/cam01_{i}.png" for i in range(num_frames)],
+        [f"{dir_path}/calib/cam02_{i}.png" for i in range(num_frames)]
+    ]
+    return calib_frames
+
+def calibrate(self, calib_imgs: list, n_rows: int=4, n_cols: int=7, 
+                  square_size: float=2.5):
+    """Retrieves the calibration constants from a set of given images.
+    
+    Parameters
+    ----------
+    calib_imgs : list
+        list of size 2, where each entry is a list of images taken from a 
+        single camera. Each image is of a checkerboard captured by each 
+        camera at a single instant (so that each image is synchronized). See
+        `camera_interface.py` for assistance in taking the images.
+    n_rows: int=4
+        The number of rows of intersections on the checkerboard
+    n_cols: int=7
+        The number of columns of intersections on the checkerboard
+    square_size: float=2.5
+        The dimension of a single square on the checkerboard, in cm
+
+    Returns
+    -------
+    list : length-2 list of projection matrices
+    list : length-2 list of lists of distortion coefficients
+    list : length-2 list of 3x3 camera intrinsic matrices
+    """
+    calib = [calibCamIntrinsic(calib_imgs[i], n_rows, n_cols, square_size, 
+                                False) for i in range(len(calib_imgs))]
+    mtx = [calib[i]['camera_matrix'] for i in range(len(calib))]
+    dist = [calib[i]['dist_coeffs'] for i in range(len(calib))]
+    rmse, R, T = stereoCalibration(*calib_imgs, *mtx, *dist, 4, 7, 2.5, False)
+    projMat1 = mtx[0] @ cv.hconcat([np.eye(3), np.zeros((3,1))]) # Cam1 is the origin
+    projMat2 = mtx[1] @ cv.hconcat([R, T]) # R, T from stereoCalibrate
+
+    return [projMat1, projMat2], dist, mtx
+
+def releaseCameras(cameras: list):
+    """Releases the cameras once the sequencing is complete."""
+    for cam in cameras:
+        cam.release()
+
+def doMocap(cameras: list, proj_mtrxs: list, cam_mtrxs: list, dist_coefs: list):
+    """Caller for the main Mocap process."""
+    aruco = Aruco()
+    db = DBActor()
+    params = setupMocapDB(aruco.param_names, db)
+    frame_counter = 0
+    while all([cam.isOpened() for cam in cameras]):
+        log.debug(f"Processing frame {frame_counter}")
+        updateMarkers(cameras, proj_mtrxs, cam_mtrxs, dist_coefs, aruco)
+        frame_counter += 1
+        updateParamsFromMarkers(aruco, params)
+        sendParamsToDB(params)
+
+def updateMarkers(cameras: list, proj_mtrxs: list, cam_mtrxs: list, 
+                  dist_coefs: list, aruco: Aruco) -> dict:
+    """Updates 3D coordinates for each marker in the list found by both cameras."""
+    imgs = [getImage(cam) for cam in cameras]
+    if not all(imgs): #Check for invalid frames
+        return 
+    aruco.findMarkerCenters(imgs, proj_mtrxs, cam_mtrxs, dist_coefs)
+    
+def getImage(camera):
+    """Returns the next frame from the given camera."""
+    img = camera.read()
+    if not img[0]:
+        camera.release()
+    return img[1]
+
+def updateParamsFromMarkers(aruco: Aruco, params: dict):
+    """Returns a dict of `Param` objects calculated from the aruco markers."""
+    out_params = getChainValues(aruco.markers, params)
+    labels = aruco.param_names
+    for l, p in zip(labels, out_params):
+        params[l].value = p
+
+def getChainValues(markers: dict, params: dict):
+    """Caller function that returns the values for the saw open chain.
+    
+    Parameters
+    ----------
+    markers : dict
+        Dictionary of markers with centers specified in model coordinates.
+        Must contain the following key, value pairs:
+            miter : Marker
+            bevel : Marker
+            slider : Marker
+            crash : Marker
+    params : dict
+        Dictionary of parameters that describe the saw. Must contain the 
+        following key, value pairs:
+            moffset_miter : tuple
+            offset_stem : tuple
+            moffset_bevel : tuple
+            height_stem : float
+            moffset_slider : tuple
+            length_slider : float
+            moffset_crash : tuple
+        Note that moffset indicates the (x,y,z) distance from the marker center 
+        to the ideal point of the attached joint.
+    """
+    miter = markers['miter']
+    bevel = markers['bevel']
+    slider = markers['slider']
+    crash = markers['crash']
+    moffset_miter = params['moffset_miter']
+    offset_stem = params['ooffset_stem']
+    moffset_bevel = params['moffset_bevel']
+    height_stem = params['height_stem']
+    moffset_slider = params['moffset_slider']
+    length_slider = params['length_slider']
+    moffset_crash = params['moffset_crash']
+
+    miter_angle = findMiterAngle(miter, moffset_miter)
+    bevel_COR = calcBevelCOR(miter_angle, offset_stem)
+    bevel_angle = findBevelAngle(bevel, moffset_bevel, bevel_COR)
+    stem_top = calcStemTop(miter_angle, offset_stem, bevel_angle, bevel_COR,
+                           height_stem)
+    slider_offset = findSliderOffset(slider, moffset_slider, stem_top)
+    crash_COR = calcCrashCOR(miter_angle, offset_stem, bevel_angle, bevel_COR,
+                             height_stem, slider_offset, length_slider)
+    crash_zero = calcCrashZero(miter_angle, offset_stem, bevel_angle, bevel_COR,
+                             height_stem, slider_offset, length_slider)
+    crash_angle = calcCrashAngle(crash, moffset_crash, crash_zero, crash_COR)
+    return miter_angle, bevel_angle, slider_offset, crash_angle
+
+def calcAngle(pnt1: tuple, pnt2: tuple, intersection: tuple)-> float:
+    """Returns the angle made by two vectors that intersect at `intersection` 
+    and extend to the two inputted points."""
+    v1, v2 = shiftPoints([pnt1, pnt2], intersection, inverse=True, copy=True)
+    v1, v2 = [x / np.linalg.norm(x) for x in (v1, v2)]
+    theta = np.arccos(np.dot(v1, v2))
+    return theta
+
+def adjustMarkerCenter(m: Marker, offset: tuple)-> tuple:
+    """Returns the marker center, translated by the offset so as to be at the 
+    correct location if the saw was at rest. This undoes any offset that might
+    have occured when placing the marker."""
+    center = shiftPoints(m.center[-1], offset, inverse=True)
+    return center
+
+def findMiterAngle(miter: Marker, offset: tuple)-> float:
+    """Calculates the miter angle based on the miter marker."""
+    marker_center = adjustMarkerCenter(miter, offset)
+    miter_zero = (1, 0, 0)
+    miter_COR = (0, 0, 0)
+    return calcAngle(marker_center, miter_zero, miter_COR)
+
+def calcBevelCOR(miter_angle, stem_offset, miter_COR=(0,0,0))-> tuple:
+    """Calculates the model coordiantes for the bevel center of rotation for a 
+    given miter angle."""
+    T = Transform(centroid=miter_COR)
+    T.translate(delx=-stem_offset)
+    T.rotate(phi=miter_angle, x=miter_COR[0], y=miter_COR[1], z=miter_COR[2])
+    bevel_COR = T.transform(miter_COR)[0][:3]
+    return bevel_COR
+
+def findBevelAngle(bevel: Marker, offset: tuple, bevel_COR: tuple)-> float:
+    """Calculates the bevel angle based on the bevel marker."""
+    bevel_center = adjustMarkerCenter(bevel, offset)
+    bevel_zero = (0, 1, 0)
+    bevel_angle = calcAngle(bevel_center, bevel_zero, bevel_COR)
+    return bevel_angle
+
+def calcStemTop(miter_angle, stem_offset, bevel_angle, bevel_COR, stem_height,
+                miter_COR=(0,0,0))-> float:
+    """Calculates the model coordinates for the top of the stem (bevel arm) for 
+     a given miter and bevel angle."""
+    T = Transform(centroid=miter_COR)
+    T.translate(delx=-stem_offset)
+    T.translate(dely=stem_height)
+    T.rotate(psi=bevel_angle, x=bevel_COR[0], y=bevel_COR[1], z=bevel_COR[2])
+    T.rotate(phi=miter_angle, x=miter_COR[0], y=miter_COR[1], z=miter_COR[2])
+    stem_top = T.transform(miter_COR)[0][:3]
+    return stem_top
+
+def findSliderOffset(slider: Marker, offset: tuple, stem_top: tuple)-> float:
+    """Calculates the distance from `stem_top` to the crash center of rotation.
+    Note that the offset is the distance from the center of the slider center to 
+    the crash arm center of rotation."""
+    slider_center = adjustMarkerCenter(slider, offset)
+    slider_offset = pointDistance(slider_center, stem_top)
+    return slider_offset
+
+def calcCrashCOR(miter_angle, stem_offset, bevel_angle, bevel_COR, stem_height, 
+                 slider_offset, slider_length, miter_COR=(0,0,0))-> tuple:
+    """Calculates the model coordinates for the crash center of rotation for a 
+    given miter and bevel angle and slider offset."""
+    T = Transform(centroid=miter_COR)
+    T.translate(delx = -stem_offset)
+    T.translate(dely = stem_height)
+    T.translate(delx = slider_length + slider_offset)
+    T.rotate(psi=bevel_angle, x=bevel_COR[0], y=bevel_COR[1], z=bevel_COR[2])
+    T.rotate(phi=miter_angle, x=miter_COR[0], y=miter_COR[1], z=miter_COR[2])
+    crash_COR = T.transform(miter_COR)[0][:3]
+    return crash_COR
+
+def calcCrashZero(miter_angle, stem_offset, bevel_angle, bevel_COR, stem_height, 
+                 slider_offset, slider_length, miter_COR=(0,0,0))-> tuple:
+    """Calculates the model coordinates for the zero postion of the crash arm for 
+    a given miter and bevel angle and slider offset."""
+    T = Transform(centroid=miter_COR)
+    T.translate(delx = -stem_offset)
+    T.translate(dely = stem_height)
+    T.translate(delx = slider_length + slider_offset)
+    T.translate(delx = 1)
+    T.rotate(psi=bevel_angle, x=bevel_COR[0], y=bevel_COR[1], z=bevel_COR[2])
+    T.rotate(phi=miter_angle, x=miter_COR[0], y=miter_COR[1], z=miter_COR[2])
+    crash_zero = T.transform(miter_COR)[0][:3]
+    return crash_zero
+
+def calcCrashAngle(crash: Marker, offset: tuple, crash_zero: tuple, 
+                   crash_COR: tuple)-> float:
+    """Calculates the crash angle based on the crash arm marker."""
+    crash_center = adjustMarkerCenter(crash, offset)
+    crash_angle = calcAngle(crash_center, crash_zero, crash_COR)
+    return crash_angle
+
+def sendParamsToDB(params: dict, db: DBActor):
+    """Stores the current 3D coordinates of the inputted parameters in the DB."""
+    mocapseq_table = db.name.MOCAPSEQ_TBL_NAME
+    seq_pk = db.getMaxPrimaryKey(mocapseq_table) + 1
+    db.addEntry(mocapseq_table, [seq_pk], [db.name.MOCAPSEQ_TBL_COLS[0]])
+
+    tbl_name = db.name.MOCAP_TBL_NAME
+    col_names = db.name.MOCAP_TBL_COLS[1:]
+    for p in params.values():
+        values = [p.value, seq_pk, p.db_id]
+        db.addEntry(tbl_name, values, col_names)
+
+def setupMocapDB(param_labels: list, db: DBActor) -> dict:
+    """Makes sure the DB contains all parameters and returns a dict of `Param` 
+    objects with DB IDs, indexed by parameter label."""
+    table_name = db.name.MOCAPMKR_TBL_NAME
+    pk = db.getMaxPrimaryKey(table_name) + 1
+    db_markers = db.getEntries(table_name)
+    extant_labels = [e[1] for e in db_markers]
+    params = dict()
+    for label in param_labels:
+        if label not in extant_labels:
+            db.addEntry(table_name, [pk, label], db.name.MOCAPMKR_TBL_COLS)
+            db_id = pk
+            pk += 1
+        else:
+            db_id = db_markers[extant_labels.index(label.name)][0]
+        params[label] = Param(label, db_id)
+    return params
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+################################
 log.basicConfig(level=log.DEBUG)
 
 class Mocap():
@@ -195,74 +493,6 @@ class Mocap():
             camera.release()
         return img[1]
     
-    def makeGrayscale(self, img):
-        """Removes color in the image leaving only shades of black, grey, and white."""
-        out = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-        return out
-    
-    def blurImage(self, img, radius=15):
-        """Performs Gaussian blurring on the image with given radius."""
-        blurred = cv.GaussianBlur(img, (radius, radius), 0)
-        return blurred
-    
-    def findBrightestPoint(self, reduced_img, point: tuple=None, dx: float=0.05, dy: float=None) -> tuple:
-        """Returns the location for the brightest pixel in the image.
-        
-        Parameters
-        ----------
-        img : array_like
-            The image to find the brightest pixel within.
-        point : tuple, Optional
-            Center of region to search for brightest pixel. If None, the method searches
-            whole image.
-        dx : float=0.5
-            The width of the region to search as a proportion of the width of the image. Only 
-            considered if `point` is passed as an parameter.
-        dy : float, Optional
-            The height of the region to search as a proportion of the height of the image.
-            If not passed, dy is assumed to be equal to dx.
-        
-        Returns
-        -------
-        tuple : (x_coordinate, y_coordinate) specifying location of brightest pixel.
-
-        Notes
-        -----
-        For region based searching the region is clipped by the image frame, so that regions 
-        located near the edges of the image are necessarily smaller than indicated.
-        """
-        if point is not None:
-            reduced_img, limits = self.getRegionFromImage(reduced_img, point, dx, dy)
-        (minVal, maxVal, minLoc, maxLoc) = cv.minMaxLoc(reduced_img)
-        point = (limits[0] + maxLoc[0], 
-                 limits[2] + maxLoc[1])
-        return point
-        
-    def getRegionFromImage(self, img, point: tuple, dx: float=0.05, dy: float=None):
-        """Clips the given image to a box region centered at the `point` with width dx
-        and height dy.
-        
-        Returns
-        -------
-            array_like: 2D subset of `img`
-            tuple: 4x1 tuple with coordinates of the region as `(min_x, max_x, min_y, max_y)`,
-                so that the outputted image can be calculated as `img[min_y : max_y, min_x : max_x]`
-        """
-        width = min([len(i) for i in img])
-        height = len(img)
-        if dy is None: 
-            dy = dx
-        dx = np.round(dx * width)
-        dy = np.round(dy * height)
-
-        min_x = np.rint(max(0, point[0] - dx)).astype(int)
-        max_x = np.rint(min(width, point[0] + dx)).astype(int)
-        min_y = np.rint(max(0, point[1] - dy)).astype(int)
-        max_y = np.rint(min(height, point[1] + dy)).astype(int)
-        img = np.array(img)
-        clipped_img = img[min_y : max_y, min_x : max_x]
-        return clipped_img, (min_x, max_x, min_y, max_y)
-    
     def drawCoordinates(self, coords: list, img_path: str=None, img_frame=None):
         """Draws the markers on the given image.
         
@@ -319,10 +549,10 @@ class Mocap():
             if l not in extant_labels:
                 self.db.addEntry(table_name, [pk, l], self.db.name.MOCAPMKR_TBL_COLS)
                 pk += 1
-                self.getMarker(l).db_key = pk
+                self.getMarker(l).id = pk
             else:
                 db_pk = db_markers[extant_labels.index(l)][0]
-                self.getMarker(l).db_key = db_pk
+                self.getMarker(l).id = db_pk
 
     def compileSequence(self, labels: list=['x', 'y', 'z']) -> list:
         """Compiles a sequence based on current markers to write to the database.

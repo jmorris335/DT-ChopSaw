@@ -1,0 +1,222 @@
+
+
+<!doctype html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>src.objects.motor &#8212; DT-Chop_Saw 0.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=649a27d8" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/bizstyle.css?v=532c1bf3" />
+    
+    <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
+    <script src="../../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/bizstyle.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <!--[if lt IE 9]>
+    <script src="_static/css3-mediaqueries.js"></script>
+    <![endif]-->
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">DT-Chop_Saw 0.1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">src.objects.motor</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for src.objects.motor</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">| File: motor.py </span>
+<span class="sd">| Info: Presents the state-model for a DC motor, along with associated classes</span>
+<span class="sd">| Author: John Morris, jhmrrs@clemson.edu  </span>
+<span class="sd">| Organizaux: Product Lifecycle Management Center at Clemson University, plmcenter@clemson.edu  </span>
+<span class="sd">| Permission: Copyright (C) 2023, John Morris. All rights reserved. Should not be reproduced, edited, sourced, or utilized without written permission from the author or organization</span>
+<span class="sd">| References: https://ctms.engin.umich.edu/CTMS/index.php?example=MotorSpeed&amp;section=SystemModeling</span>
+
+<span class="sd">| Version History:</span>
+<span class="sd">| - 0.0, 6 Dec 2023: Initialized</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">src.auxiliary.support</span> <span class="kn">import</span> <span class="n">findDefault</span>
+<span class="kn">from</span> <span class="nn">src.db.logger</span> <span class="kn">import</span> <span class="n">Logger</span>
+<span class="kn">from</span> <span class="nn">src.auxiliary.dynamic</span> <span class="kn">import</span> <span class="n">DynamicBlock</span>
+<span class="kn">from</span> <span class="nn">src.objects.twin</span> <span class="kn">import</span> <span class="n">Twin</span>
+
+<div class="viewcode-block" id="Motor">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.motor.Motor">[docs]</a>
+<span class="k">class</span> <span class="nc">Motor</span><span class="p">(</span><span class="n">Twin</span><span class="p">,</span> <span class="n">DynamicBlock</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A primitive state model for a DC motor.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">    ----------</span>
+<span class="sd">    **kwargs : dict, optional</span>
+<span class="sd">        Optional editing of state variables during initialization. Possible arguments are:</span>
+
+<span class="sd">        id : str, default=&quot;0&quot;</span>
+<span class="sd">            The identification number of the motor.</span>
+<span class="sd">        V_M : float, default=18.</span>
+<span class="sd">            The typical supply voltage for the motor.</span>
+<span class="sd">        K_M : float, default=0.01</span>
+<span class="sd">            Motor constant (AKA torque constant, back-EMF constant), in N*m/A.</span>
+<span class="sd">        J_M : float, default=0.01</span>
+<span class="sd">            The moment of inertia for the rotor, in kg*m^2.</span>
+<span class="sd">        B_M : float, default=0.1</span>
+<span class="sd">            The coefficient of viscous friction, proportional to the speed of the rotor, in N*m*s.</span>
+<span class="sd">        R_M : float, default=1.</span>
+<span class="sd">            The electrical resistance of the armature, in ohms.</span>
+<span class="sd">        L_M : float, default=0.5</span>
+<span class="sd">            The electrical inductance of the copper winding, in henries        </span>
+<span class="sd">        theta : float, default=0.0</span>
+<span class="sd">            Angular position of motor shaft, measured CCW from the abscissa, in rad</span>
+<span class="sd">        omega : float, default=0.0</span>
+<span class="sd">            Angular velocity of motor shaft, with CCW as positive, in rad/s</span>
+<span class="sd">        current : float, default=0.</span>
+<span class="sd">            Current inherent in motor, in amps</span>
+<span class="sd">        load : float, default=0.0</span>
+<span class="sd">            Torque applied to the motor from the payload, in N*m</span>
+<span class="sd">        voltage : float, default=0.0</span>
+<span class="sd">            Voltage applied to the motor, in volts</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">Twin</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="c1">#Static Values</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="s2">&quot;Motor&quot;</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">V_M</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">18.</span><span class="p">,</span> <span class="s2">&quot;V_M&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">K_M</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">0.01</span><span class="p">,</span> <span class="s2">&quot;K_M&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">J_M</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">0.01</span><span class="p">,</span> <span class="s2">&quot;J_M&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">B_M</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="s2">&quot;B_M&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">R_M</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">1.</span><span class="p">,</span> <span class="s2">&quot;R_M&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">L_M</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="s2">&quot;L_M&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="c1"># Dynamic Values</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">theta</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">0.</span><span class="p">,</span> <span class="s2">&quot;theta&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">omega</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">0.</span><span class="p">,</span> <span class="s2">&quot;omega&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">current</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">0.</span><span class="p">,</span> <span class="s2">&quot;current&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">load</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">0.</span><span class="p">,</span> <span class="s2">&quot;load&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">voltage</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">0.</span><span class="p">,</span> <span class="s2">&quot;voltage&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="c1"># DynamicBlock inherited methods/attributes overloading</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">A</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+                  <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">B_M</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">J_M</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">K_M</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">J_M</span><span class="p">],</span>
+                  <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">K_M</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">L_M</span><span class="p">,</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">R_M</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">L_M</span><span class="p">]]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">B</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">J_M</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">L_M</span><span class="p">]]</span>
+        <span class="n">DynamicBlock</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">A</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="p">)</span>
+
+        <span class="c1"># Twin inherited methods/attributes overloading</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">Logger</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Motor.getStates">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.motor.Motor.getStates">[docs]</a>
+    <span class="k">def</span> <span class="nf">getStates</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns a array of the current values for the dynamic state variables.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">theta</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">omega</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">current</span><span class="p">]</span></div>
+
+    
+<div class="viewcode-block" id="Motor.getInputs">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.motor.Motor.getInputs">[docs]</a>
+    <span class="k">def</span> <span class="nf">getInputs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns an array of the current values for the inputs.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">load</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">voltage</span><span class="p">]</span></div>
+
+    
+<div class="viewcode-block" id="Motor.setStates">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.motor.Motor.setStates">[docs]</a>
+    <span class="k">def</span> <span class="nf">setStates</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">states</span><span class="p">:</span> <span class="nb">list</span><span class="o">=</span><span class="p">[</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">]):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Sets the state variables for the object in order: theta, omega, phi, phidot.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">states</span><span class="p">)</span> <span class="o">==</span> <span class="n">DynamicBlock</span><span class="o">.</span><span class="n">getNumStates</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">theta</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">omega</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">current</span> <span class="o">=</span> <span class="n">states</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">setData</span><span class="p">(</span><span class="s1">&#39;load&#39;</span><span class="p">,</span> <span class="n">states</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">setData</span><span class="p">(</span><span class="s1">&#39;omega&#39;</span><span class="p">,</span> <span class="n">states</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">setData</span><span class="p">(</span><span class="s1">&#39;current&#39;</span><span class="p">,</span> <span class="n">states</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span> 
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Wrong number of states set for blade object (ID=&quot;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;)&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Motor.setInputs">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.motor.Motor.setInputs">[docs]</a>
+    <span class="k">def</span> <span class="nf">setInputs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">:</span> <span class="nb">list</span><span class="o">=</span><span class="p">[</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">]):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Sets the input variables for the object in order: torque&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span> <span class="o">==</span> <span class="n">DynamicBlock</span><span class="o">.</span><span class="n">getNumInputs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">load</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">voltage</span> <span class="o">=</span> <span class="n">inputs</span>
+        <span class="k">else</span><span class="p">:</span> 
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Wrong number of inputs set for blade object (ID=&quot;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;)&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Motor.step">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.motor.Motor.step">[docs]</a>
+    <span class="k">def</span> <span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dt</span><span class="p">:</span> <span class="nb">float</span><span class="o">=</span><span class="mf">0.1</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Updates the dynamic values of the object over a single time step.&quot;&quot;&quot;</span>
+        <span class="n">U</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getInputs</span><span class="p">()</span>
+        <span class="n">X0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getStates</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">setStates</span><span class="p">(</span><span class="n">DynamicBlock</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="o">=</span><span class="n">U</span><span class="p">,</span> <span class="n">X0</span><span class="o">=</span><span class="n">X0</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="n">dt</span><span class="p">))</span>
+        <span class="n">Twin</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Motor.calcTorque">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.motor.Motor.calcTorque">[docs]</a>
+    <span class="k">def</span> <span class="nf">calcTorque</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the torque based off the current in the motor.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">K_M</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">current</span></div>
+</div>
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">DT-Chop_Saw 0.1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">src.objects.motor</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2023, John_Morris.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.2.6.
+    </div>
+  </body>
+</html>

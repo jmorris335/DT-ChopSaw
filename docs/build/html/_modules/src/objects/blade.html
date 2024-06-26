@@ -1,0 +1,309 @@
+
+
+<!doctype html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>src.objects.blade &#8212; DT-Chop_Saw 0.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=649a27d8" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/bizstyle.css?v=532c1bf3" />
+    
+    <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
+    <script src="../../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/bizstyle.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <!--[if lt IE 9]>
+    <script src="_static/css3-mediaqueries.js"></script>
+    <![endif]-->
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">DT-Chop_Saw 0.1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">src.objects.blade</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for src.objects.blade</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">| File: blade.py </span>
+<span class="sd">| Info: Presents the state-model for a saw blade, along with associated classes</span>
+<span class="sd">| Author: John Morris, jhmrrs@clemson.edu  </span>
+<span class="sd">| Organization: Product Lifecycle Management Center at Clemson University, plmcenter@clemson.edu  </span>
+<span class="sd">| Permission: Copyright (C) 2023, John Morris. All rights reserved. Should not be reproduced, edited, sourced, or utilized without written permission from the author or organization</span>
+
+<span class="sd">| Version History:</span>
+<span class="sd">| - 0.0, 6 Dec 2023: Initialized</span>
+<span class="sd">| - 0.1, 2 Jan 2023: Basic dynamics formalized</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">matplotlib.patches</span> <span class="kn">import</span> <span class="n">Circle</span><span class="p">,</span> <span class="n">PathPatch</span>
+<span class="kn">from</span> <span class="nn">matplotlib.path</span> <span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">from</span> <span class="nn">src.auxiliary.support</span> <span class="kn">import</span> <span class="n">findDefault</span>
+<span class="kn">from</span> <span class="nn">src.db.logger</span> <span class="kn">import</span> <span class="n">Logger</span>
+<span class="kn">from</span> <span class="nn">src.objects.twin</span> <span class="kn">import</span> <span class="n">Twin</span>
+<span class="kn">from</span> <span class="nn">src.auxiliary.dynamic</span> <span class="kn">import</span> <span class="n">DynamicBlock</span>
+
+<div class="viewcode-block" id="Blade">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.blade.Blade">[docs]</a>
+<span class="k">class</span> <span class="nc">Blade</span><span class="p">(</span><span class="n">Twin</span><span class="p">,</span> <span class="n">DynamicBlock</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    A primitive state model of a saw blade.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    **kwargs : dict, optional</span>
+<span class="sd">        Optional editing of state variables during initialization. Possible arguments are:</span>
+
+<span class="sd">        name : str, default=&quot;Blade&quot;</span>
+<span class="sd">            The identification string for the blade.</span>
+<span class="sd">        first_use_date : datetime, optional</span>
+<span class="sd">            The date the blade was first used.</span>
+<span class="sd">        radius : float, default=0.092 meters</span>
+<span class="sd">            The radius of the blade.</span>
+<span class="sd">        num_teeth : int, default=56</span>
+<span class="sd">            The number of teeth on the blade.</span>
+<span class="sd">        weight : float, default=0.01 kg</span>
+<span class="sd">            The weight of the blade.</span>
+<span class="sd">        thickness : float, default=0.0022 meters</span>
+<span class="sd">            The thickness of the blade plate.</span>
+<span class="sd">        kerf : float. default=0.0027 meters</span>
+<span class="sd">            The width of the slot left by the blade, or width of material removed.</span>
+<span class="sd">        arbor_dia : float, default=0.015875 meters</span>
+<span class="sd">            The diameter of the arbor hole on the blade.</span>
+<span class="sd">        hook : float, default=-0.104 radians</span>
+<span class="sd">            The hook angle of the blade teeth.</span>
+<span class="sd">        rake : float, default=0 radians</span>
+<span class="sd">            The rake angle of the blade teeth.</span>
+<span class="sd">        tooth_type : ToothType, default=ToothType.FTG</span>
+<span class="sd">            The geometry and configuration of the teeth on the blade, inputted as a enumerated object. </span>
+<span class="sd">        rotational_friction : float, default=0.01 N*m</span>
+<span class="sd">            Average force of friction resisting rotation.</span>
+<span class="sd">        moi : float; kg*m^2</span>
+<span class="sd">            The blade&#39;s moment of inertia; if not passed then the MoI is a caluclated value.</span>
+<span class="sd">        theta : float, default=0 radians</span>
+<span class="sd">            The angular position of the blade, measured from an arbitrary starting point.</span>
+<span class="sd">        phi : float, default=pi/2 radians</span>
+<span class="sd">            The vertical orientation of the blade measured relative to the cutting surface, so that upright is at pi/2.</span>
+<span class="sd">        phidot : float, default=0 rad/s</span>
+<span class="sd">            The rotation of the blade around its secondary axis.</span>
+<span class="sd">        omega : float, default=0 rad/s</span>
+<span class="sd">            The angular velocity of the blade. </span>
+<span class="sd">        alpha : float, default=0 rad/s</span>
+<span class="sd">            The angular acceleration of the blade.</span>
+<span class="sd">    &#39;&#39;&#39;</span> 
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">Twin</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="c1">#Static Values</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="s2">&quot;Blade&quot;</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">radius_blade</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">.092</span><span class="p">,</span> <span class="s2">&quot;radius_blade&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_teeth</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mi">56</span><span class="p">,</span> <span class="s2">&quot;num_teeth&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">weight_blade</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">.01</span><span class="p">,</span> <span class="s2">&quot;weight_blade&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">thickness_blade</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">0.001</span><span class="p">,</span> <span class="s2">&quot;thickness_blade&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">kerf_blade</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">0.0027</span><span class="p">,</span> <span class="s2">&quot;kerf_blade&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">arbor_dia</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">0.015875</span><span class="p">,</span> <span class="s2">&quot;arbor_dia&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hook</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="o">-</span><span class="mf">0.104</span><span class="p">,</span> <span class="s2">&quot;hook&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rake</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="o">-</span><span class="mf">0.104</span><span class="p">,</span> <span class="s2">&quot;rake&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tooth_type</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="n">ToothType</span><span class="p">[</span><span class="s1">&#39;FTG&#39;</span><span class="p">],</span> <span class="s2">&quot;tooth_type&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rotational_friction_blade</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mf">.01</span><span class="p">,</span> <span class="s2">&quot;rotational_friction_blade&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">moi_blade</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">calcMomentOfInertia</span><span class="p">(),</span> <span class="s2">&quot;moi_blade&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="c1"># Dynamic Values</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">theta_blade</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;theta_blade&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">phi_blade</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;phi_blade&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">phidot_blade</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;phidot_blade&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">omega_blade</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;omega_blade&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">torque</span> <span class="o">=</span> <span class="n">findDefault</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;torque&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="c1"># DynamicBlock inherited methods/attributes overloading</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">A</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+                  <span class="p">[</span><span class="mi">0</span><span class="p">,</span>  <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">rotational_friction_blade</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">moi_blade</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,],</span>
+                  <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+                  <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">B</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">moi_blade</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+        <span class="n">DynamicBlock</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">A</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="p">)</span>
+
+        <span class="c1"># Twin inherited methods/attributes overloading</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">Logger</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">patches</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">plot</span><span class="p">()</span>
+
+<div class="viewcode-block" id="Blade.getStates">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.blade.Blade.getStates">[docs]</a>
+    <span class="k">def</span> <span class="nf">getStates</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns a array of the current values for the dynamic state variables.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">theta_blade</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">omega_blade</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">phi_blade</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">phidot_blade</span><span class="p">]</span></div>
+
+    
+<div class="viewcode-block" id="Blade.getInputs">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.blade.Blade.getInputs">[docs]</a>
+    <span class="k">def</span> <span class="nf">getInputs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns an array of the current values for the inputs.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">torque</span><span class="p">]</span></div>
+
+    
+<div class="viewcode-block" id="Blade.setStates">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.blade.Blade.setStates">[docs]</a>
+    <span class="k">def</span> <span class="nf">setStates</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">states</span><span class="p">:</span> <span class="nb">list</span><span class="o">=</span><span class="p">[</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">]):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Sets the state variables for the object in order: theta, omega, phi, phidot.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">states</span><span class="p">)</span> <span class="o">==</span> <span class="n">DynamicBlock</span><span class="o">.</span><span class="n">getNumStates</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">theta_blade</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">omega_blade</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">phi_blade</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">phidot_blade</span> <span class="o">=</span> <span class="n">states</span>
+        <span class="k">else</span><span class="p">:</span> 
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Wrong number of states set for blade object (ID=&quot;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;)&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Blade.setInputs">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.blade.Blade.setInputs">[docs]</a>
+    <span class="k">def</span> <span class="nf">setInputs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">:</span> <span class="nb">list</span><span class="o">=</span><span class="p">[</span><span class="mf">0.</span><span class="p">]):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Sets the input variables for the object in order: torque&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span> <span class="o">==</span> <span class="n">DynamicBlock</span><span class="o">.</span><span class="n">getNumInputs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">torque</span> <span class="o">=</span> <span class="n">inputs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span> 
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Wrong number of inputs set for blade object (ID=&quot;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;)&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Blade.step">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.blade.Blade.step">[docs]</a>
+    <span class="k">def</span> <span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dt</span><span class="p">:</span> <span class="nb">float</span><span class="o">=</span><span class="mf">0.1</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Updates the dynamic values of the object over a single time step.&quot;&quot;&quot;</span>
+        <span class="n">U</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getInputs</span><span class="p">()</span>
+        <span class="n">X0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getStates</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">setStates</span><span class="p">(</span><span class="n">DynamicBlock</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="o">=</span><span class="n">U</span><span class="p">,</span> <span class="n">X0</span><span class="o">=</span><span class="n">X0</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="n">dt</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logData</span><span class="p">(</span><span class="s2">&quot;blade_angular_velocity&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">omega_blade</span><span class="p">)</span>
+        <span class="n">Twin</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+
+    
+<div class="viewcode-block" id="Blade.calcMomentOfInertia">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.blade.Blade.calcMomentOfInertia">[docs]</a>
+    <span class="k">def</span> <span class="nf">calcMomentOfInertia</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculates the Moment of Inertia (assuming a disc), in kg*m^2 about the primary axis.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="mi">1</span><span class="o">/</span><span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight_blade</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius_blade</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight_blade</span> <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">arbor_dia</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Blade.getNumEngagedTeeth">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.blade.Blade.getNumEngagedTeeth">[docs]</a>
+    <span class="k">def</span> <span class="nf">getNumEngagedTeeth</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">swept_angle</span><span class="p">:</span> <span class="nb">float</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the number of engaged in the blade, for an engagement over the given angle </span>
+<span class="sd">        (in radians).&quot;&quot;&quot;</span>
+        <span class="n">circum_prop</span> <span class="o">=</span> <span class="n">swept_angle</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span>
+        <span class="n">num_teeth</span> <span class="o">=</span> <span class="p">(</span><span class="n">circum_prop</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_teeth</span><span class="p">)</span> <span class="o">//</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="n">num_teeth</span></div>
+
+
+<div class="viewcode-block" id="Blade.plot">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.blade.Blade.plot">[docs]</a>
+    <span class="k">def</span> <span class="nf">plot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">0.</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns list of matplotlib patch object of entity.&quot;&quot;&quot;</span>
+        <span class="n">blade_patch</span> <span class="o">=</span> <span class="n">Circle</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius_blade</span><span class="p">)</span>
+        <span class="n">blade_patch</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">fc</span><span class="o">=</span><span class="s2">&quot;red&quot;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">ec</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Saw Blade&quot;</span><span class="p">)</span>
+        <span class="n">radial_line</span> <span class="o">=</span> <span class="n">PathPatch</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">plotRadialLine</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">),</span> <span class="n">lw</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">ec</span><span class="o">=</span><span class="s1">&#39;k&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">blade_patch</span><span class="p">,</span> <span class="n">radial_line</span><span class="p">]</span></div>
+
+    
+<div class="viewcode-block" id="Blade.plotRadialLine">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.blade.Blade.plotRadialLine">[docs]</a>
+    <span class="k">def</span> <span class="nf">plotRadialLine</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="mf">0.</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns a path of radial line from center of blade to a point on the radius</span>
+<span class="sd">        rotated by theta_blade.&quot;&quot;&quot;</span>
+        <span class="n">x1</span> <span class="o">=</span> <span class="n">x0</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius_blade</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">theta_blade</span><span class="p">)</span>
+        <span class="n">y1</span> <span class="o">=</span> <span class="n">y0</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius_blade</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">theta_blade</span><span class="p">)</span>
+        <span class="n">vertices</span> <span class="o">=</span> <span class="p">[[</span><span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="p">],</span> <span class="p">[</span><span class="n">x1</span><span class="p">,</span> <span class="n">y1</span><span class="p">]]</span>
+        <span class="n">codes</span> <span class="o">=</span> <span class="p">[</span><span class="n">Path</span><span class="o">.</span><span class="n">MOVETO</span><span class="p">,</span> <span class="n">Path</span><span class="o">.</span><span class="n">LINETO</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">Path</span><span class="p">(</span><span class="n">vertices</span><span class="p">,</span> <span class="n">codes</span><span class="p">)</span></div>
+
+    
+<div class="viewcode-block" id="Blade.updatePatches">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.blade.Blade.updatePatches">[docs]</a>
+    <span class="k">def</span> <span class="nf">updatePatches</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">0.</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Updates patch objects of entity.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">patches</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">center</span><span class="o">=</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>
+        <span class="n">radial_line_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">plotRadialLine</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">patches</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_path</span><span class="p">(</span><span class="n">radial_line_path</span><span class="p">)</span></div>
+</div>
+
+
+<div class="viewcode-block" id="ToothType">
+<a class="viewcode-back" href="../../../src.objects.html#src.objects.blade.ToothType">[docs]</a>
+<span class="k">class</span> <span class="nc">ToothType</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    The type of tooth used in terms of in-line configuration and shape. </span>
+<span class="sd">    From: https://circularsawblade.net/ftg</span>
+<span class="sd">    </span>
+<span class="sd">    Values</span>
+<span class="sd">    ----------</span>
+<span class="sd">    - `FTG` (Flat Top Grind): Triangular, in-line geometry.</span>
+<span class="sd">    - `TCG` (Triple Chip Grind): Alternates FTG and relieved tooth shapes.</span>
+<span class="sd">    - `ATB` (Alternate Top Bevel): Alternating beveled teeth.</span>
+<span class="sd">    - `ATBR` (Alternate Top Bevel with Raker): Alternates ATB and FTG teeth (usually 4:1 ratio).</span>
+<span class="sd">    - `HATB` (High Alternate Top Bevel): ATB with a steeper bevel angle.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">FTG</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">TCG</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">ATB</span> <span class="o">=</span> <span class="mi">3</span>
+    <span class="n">ATBR</span> <span class="o">=</span> <span class="mi">4</span>
+    <span class="n">HATB</span> <span class="o">=</span> <span class="mi">5</span></div>
+
+
+<span class="c1">#TODO: Make Tooth object, with function that returns the tooth located at a specific angle</span>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">DT-Chop_Saw 0.1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">src.objects.blade</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2023, John_Morris.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.2.6.
+    </div>
+  </body>
+</html>

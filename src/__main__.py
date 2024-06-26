@@ -2,15 +2,15 @@ import concurrent.futures
 
 # from src.test.scratchpaper import scratchpaper
 # from src.sim.dev_sim import dev_sim_main
-# from src.sim.mocap_sim import mocapSim
+from src.sim.mocap_sim import mocapSim
 # from src.gui.app import run as dash_app
-from src.gui.skeleton import skeletonTest
+# from src.gui.skeleton import skeletonTest
 
 def main():
-    # mocapSim()
+    mocapSim()
     # dash_mocap_sim()
     # dev_sim_main()
-    skeletonTest()
+    # skeletonTest()
 
 def dash_mocap_sim():
     with concurrent.futures.ThreadPoolExecutor() as executor:

@@ -1,0 +1,1085 @@
+
+
+<!doctype html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>src.objects package &#8212; DT-Chop_Saw 0.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=649a27d8" />
+    <link rel="stylesheet" type="text/css" href="_static/bizstyle.css?v=532c1bf3" />
+    
+    <script src="_static/documentation_options.js?v=2709fde1"></script>
+    <script src="_static/doctools.js?v=888ff710"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/bizstyle.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <!--[if lt IE 9]>
+    <script src="_static/css3-mediaqueries.js"></script>
+    <![endif]-->
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">DT-Chop_Saw 0.1 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">src.objects package</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="src-objects-package">
+<h1>src.objects package<a class="headerlink" href="#src-objects-package" title="Link to this heading">¶</a></h1>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading">¶</a></h2>
+</section>
+<section id="src-objects-chopsaw-module">
+<h2>src.objects.chopsaw module<a class="headerlink" href="#src-objects-chopsaw-module" title="Link to this heading">¶</a></h2>
+</section>
+<section id="src-objects-structure-module">
+<h2>src.objects.structure module<a class="headerlink" href="#src-objects-structure-module" title="Link to this heading">¶</a></h2>
+<div class="line-block" id="module-src.objects.structure">
+<div class="line">File: structure.py</div>
+<div class="line">Info: Presents the state-model for a the structure of a radial-arm saw.</div>
+<div class="line">Author: John Morris, <a class="reference external" href="mailto:jhmrrs&#37;&#52;&#48;clemson&#46;edu">jhmrrs<span>&#64;</span>clemson<span>&#46;</span>edu</a></div>
+<div class="line">Organization: Product Lifecycle Management Center at Clemson University, <a class="reference external" href="mailto:plmcenter&#37;&#52;&#48;clemson&#46;edu">plmcenter<span>&#64;</span>clemson<span>&#46;</span>edu</a></div>
+<div class="line">Permission: Copyright (C) 2023, John Morris. All rights reserved. Should not be reproduced, edited, sourced, or utilized without written permission from the author or organization</div>
+<div class="line">Version History:</div>
+<div class="line">- 0.1, 15 Jan 2024: Initialized</div>
+</div>
+<dl class="py class">
+<dt class="sig sig-object py" id="src.objects.structure.Arm">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">src.objects.structure.</span></span><span class="sig-name descname"><span class="pre">Arm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/structure.html#Arm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.structure.Arm" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Twin</span></code></p>
+<p>Primitive state model of the arm for a radial arm saw.</p>
+<section id="parameters">
+<h3>Parameters:<a class="headerlink" href="#parameters" title="Link to this heading">¶</a></h3>
+<dl>
+<dt><a href="#id1"><span class="problematic" id="id2">**</span></a>kwargs<span class="classifier">dict, optional</span></dt><dd><p>Optional editing of state variables during initialization. Possible arguments are:</p>
+<dl class="simple">
+<dt>h0_arm<span class="classifier">float, default=0.08 meters</span></dt><dd><p>The resting height for the center of the blade holder.</p>
+</dd>
+<dt>l0_rotating_arm<span class="classifier">float, default=0.125 meters</span></dt><dd><p>The length between the hinge point (for theta_arm) and the center of the blade holder.</p>
+</dd>
+<dt>width_arm<span class="classifier">float, default=0.05 meters</span></dt><dd><p>The diameter of the circular arm, primarily used for plotting purposes.</p>
+</dd>
+<dt>l0_arm<span class="classifier">float, default=0.15 meters</span></dt><dd><p>The minimum length of the linear arm (unextended).</p>
+</dd>
+<dt>gap_arm<span class="classifier">float, default=0.12 meters</span></dt><dd><p>The distance between the unextended arm and the rear guard.</p>
+</dd>
+<dt>x_arm<span class="classifier">float, default=0.0 meters</span></dt><dd><p>The linear displacement of the arm in/towards (positive) and out/away from the operator.
+0 (default) is all the way towards the workpiece (fully engaged).</p>
+</dd>
+<dt>theta_arm<span class="classifier">float, default=0.0 radians</span></dt><dd><p>The angular position of the blade holder wrt to the workbench, with 0 providing full
+engagement of the blade and pi/2 being perpendicular to the workbench.</p>
+</dd>
+<dt>phi_arm<span class="classifier">float, default=0.0 radians</span></dt><dd><p>The angular tilt of the blade (allowing for miter cuts), measured CCW from vertical.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.structure.Arm.plot">
+<span class="sig-name descname"><span class="pre">plot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/structure.html#Arm.plot"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.structure.Arm.plot" title="Link to this definition">¶</a></dt>
+<dd><p>Returns a list of matplotlib.patches.Patch objects that represent the entity.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.structure.Arm.plotAngularArmPatch">
+<span class="sig-name descname"><span class="pre">plotAngularArmPatch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/structure.html#Arm.plotAngularArmPatch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.structure.Arm.plotAngularArmPatch" title="Link to this definition">¶</a></dt>
+<dd><p>Returns matplotlib patch object for angular arm.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.structure.Arm.plotLinearArmPatch">
+<span class="sig-name descname"><span class="pre">plotLinearArmPatch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/structure.html#Arm.plotLinearArmPatch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.structure.Arm.plotLinearArmPatch" title="Link to this definition">¶</a></dt>
+<dd><p>Returns matplotlib patch object for linear arm.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.structure.Arm.plotSliderArmPatch">
+<span class="sig-name descname"><span class="pre">plotSliderArmPatch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/structure.html#Arm.plotSliderArmPatch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.structure.Arm.plotSliderArmPatch" title="Link to this definition">¶</a></dt>
+<dd><p>Returns matplotlib patch object for slider arm.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.structure.Arm.updateAngularArmPatch">
+<span class="sig-name descname"><span class="pre">updateAngularArmPatch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/structure.html#Arm.updateAngularArmPatch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.structure.Arm.updateAngularArmPatch" title="Link to this definition">¶</a></dt>
+<dd><p>Updates xy position, rotation angle of angular arm patch.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.structure.Arm.updateLinearArmPatch">
+<span class="sig-name descname"><span class="pre">updateLinearArmPatch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/structure.html#Arm.updateLinearArmPatch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.structure.Arm.updateLinearArmPatch" title="Link to this definition">¶</a></dt>
+<dd><p>Updates xy position of linear arm patch.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.structure.Arm.updatePatches">
+<span class="sig-name descname"><span class="pre">updatePatches</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/structure.html#Arm.updatePatches"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.structure.Arm.updatePatches" title="Link to this definition">¶</a></dt>
+<dd><p>Updates patch objects of entity.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.structure.Arm.updateSliderPatch">
+<span class="sig-name descname"><span class="pre">updateSliderPatch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/structure.html#Arm.updateSliderPatch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.structure.Arm.updateSliderPatch" title="Link to this definition">¶</a></dt>
+<dd><p>Updates xy position, length of slider patch.</p>
+</dd></dl>
+
+</section>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="src.objects.structure.Table">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">src.objects.structure.</span></span><span class="sig-name descname"><span class="pre">Table</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/structure.html#Table"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.structure.Table" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Twin</span></code></p>
+<p>Primitive state model of the table of a radial arm saw.</p>
+<section id="id3">
+<h3>Parameters:<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h3>
+<dl>
+<dt><a href="#id4"><span class="problematic" id="id5">**</span></a>kwargs<span class="classifier">dict, optional</span></dt><dd><p>Optional editing of state variables during initialization. Possible arguments are:</p>
+<dl class="simple">
+<dt>theta_table<span class="classifier">float, default=0.0 radians</span></dt><dd><p>The angular position of the table in reference to the workpiece, as seen from bird’s eye
+view, with positive defined CCW from default (straight) cuts.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+</section>
+<section id="module-src.objects.cut">
+<span id="src-objects-cut-module"></span><h2>src.objects.cut module<a class="headerlink" href="#module-src.objects.cut" title="Link to this heading">¶</a></h2>
+<div class="line-block">
+<div class="line">File: cut.py</div>
+<div class="line">Info: Presents the state-model for a cut made with a chopsaw on a homogeneous workpiece</div>
+<div class="line">Author: John Morris, <a class="reference external" href="mailto:jhmrrs&#37;&#52;&#48;clemson&#46;edu">jhmrrs<span>&#64;</span>clemson<span>&#46;</span>edu</a></div>
+<div class="line">Organization: Product Lifecycle Management Center at Clemson University, <a class="reference external" href="mailto:plmcenter&#37;&#52;&#48;clemson&#46;edu">plmcenter<span>&#64;</span>clemson<span>&#46;</span>edu</a></div>
+<div class="line">Permission: Copyright (C) 2023, John Morris. All rights reserved. Should not be reproduced, edited, sourced, or utilized without written permission from the author or organization</div>
+<div class="line">Version History:</div>
+<div class="line">- 0.1, 30 Jan 2024: Minimum viable functionality</div>
+<div class="line">- 0.2, 15 Feb 2024: Full clipping functionality</div>
+</div>
+<dl class="py class">
+<dt class="sig sig-object py" id="src.objects.cut.Cut">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">src.objects.cut.</span></span><span class="sig-name descname"><span class="pre">Cut</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">saw</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Saw</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wkp</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#src.objects.workpiece.Workpiece" title="src.objects.workpiece.Workpiece"><span class="pre">Workpiece</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/cut.html#Cut"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.cut.Cut" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Twin</span></code></p>
+<p>Models the act of cutting a workpiece with a saw blade.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>saw</strong> (<em>Saw</em><em>, </em><em>default=Saw</em><em>(</em><em>)</em>) – The saw performing the cut, constructs a new ChopSaw object by default.</p></li>
+<li><p><strong>wkp</strong> (<a class="reference internal" href="#src.objects.workpiece.Workpiece" title="src.objects.workpiece.Workpiece"><em>Workpiece</em></a><em>, </em><em>default=Workpiece</em><em>(</em><em>)</em>) – The workpiece being cut, constructs a new Workpiece object by default.</p></li>
+<li><p><strong>**kwargs</strong> (<em>dict</em><em>, </em><em>optional</em>) – <p>Optional editing of state variables during initialization. Optional parameters are:
+a0 : float, default=0.0</p>
+<blockquote>
+<div><p>Calibration constant for tangential (fricational) loading.</p>
+</div></blockquote>
+<dl class="simple">
+<dt>a1<span class="classifier">float, default=1.0</span></dt><dd><p>Calibration constant for tangential (fricational) loading.</p>
+</dd>
+<dt>a2<span class="classifier">float, default=1.0</span></dt><dd><p>Calibration constant for tangential (fricational) loading.</p>
+</dd>
+<dt>a3<span class="classifier">float, default=1.0</span></dt><dd><p>Calibration constant for tangential (fricational) loading.</p>
+</dd>
+<dt>a4<span class="classifier">float, default=1.0</span></dt><dd><p>Calibration constant for tangential (fricational) loading.</p>
+</dd>
+<dt>b0<span class="classifier">float, default=0.0</span></dt><dd><p>Calibration constant for normal (radial) loading.</p>
+</dd>
+<dt>b1<span class="classifier">float, default=1.0</span></dt><dd><p>Calibration constant for normal (radial) loading.</p>
+</dd>
+<dt>b2<span class="classifier">float, default=1.0</span></dt><dd><p>Calibration constant for normal (radial) loading.</p>
+</dd>
+<dt>b3<span class="classifier">float, default=1.0</span></dt><dd><p>Calibration constant for normal (radial) loading.</p>
+</dd>
+<dt>b4<span class="classifier">float, default=1.0</span></dt><dd><p>Calibration constant for normal (radial) loading.</p>
+</dd>
+</dl>
+</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">References</p>
+<ol class="arabic simple">
+<li><p>Kapoor, S. G., R. E. DeVor, R. Zhu, R. Gajjela, G. Parakkal, and D. Smithey. “Development of Mechanistic Models for the Prediction of Machining Performance: Model Building Methodology.” Machining Science and Technology 2, no. 2 (December 1, 1998): 213-38. <a class="reference external" href="https://doi.org/10.1080/10940349808945669">https://doi.org/10.1080/10940349808945669</a>.</p></li>
+</ol>
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.cut.Cut.arrangeIntxPointsByInOut">
+<span class="sig-name descname"><span class="pre">arrangeIntxPointsByInOut</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">intx_pts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seg_indices</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/cut.html#Cut.arrangeIntxPointsByInOut"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.cut.Cut.arrangeIntxPointsByInOut" title="Link to this definition">¶</a></dt>
+<dd><p>Returns the points arranged CCW so that odd points are entry points and even points
+are exit points for the blade passing through the wkp.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.cut.Cut.calcAverageChipDepth">
+<span class="sig-name descname"><span class="pre">calcAverageChipDepth</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">intx_pts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seg_indices</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loop</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="_modules/src/objects/cut.html#Cut.calcAverageChipDepth"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.cut.Cut.calcAverageChipDepth" title="Link to this definition">¶</a></dt>
+<dd><p>Construed as the average of the distance between the blade circle and path
+path.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.cut.Cut.calcCutArea">
+<span class="sig-name descname"><span class="pre">calcCutArea</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/cut.html#Cut.calcCutArea"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.cut.Cut.calcCutArea" title="Link to this definition">¶</a></dt>
+<dd><p>Returns the area of the chip cross section.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.cut.Cut.calcNormalPressureCoef">
+<span class="sig-name descname"><span class="pre">calcNormalPressureCoef</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/cut.html#Cut.calcNormalPressureCoef"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.cut.Cut.calcNormalPressureCoef" title="Link to this definition">¶</a></dt>
+<dd><p>Calculates the pressure coefficients for the normal force on the rake face.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.cut.Cut.calcPressureCoef">
+<span class="sig-name descname"><span class="pre">calcPressureCoef</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">c0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c4</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/cut.html#Cut.calcPressureCoef"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.cut.Cut.calcPressureCoef" title="Link to this definition">¶</a></dt>
+<dd><p>Calculates the pressure coefficients for use in Merchant’s model using the regression
+model found in Kapoor et al. (2024).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.cut.Cut.calcRadialDistanceByPoints">
+<span class="sig-name descname"><span class="pre">calcRadialDistanceByPoints</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">profile</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="_modules/src/objects/cut.html#Cut.calcRadialDistanceByPoints"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.cut.Cut.calcRadialDistanceByPoints" title="Link to this definition">¶</a></dt>
+<dd><p>Calculates the average distance between a profile and the blade circle.</p>
+<section id="process">
+<h3>Process<a class="headerlink" href="#process" title="Link to this heading">¶</a></h3>
+<p>1. Profile segments are parameterized in terms of an angle, theta.
+1. Each segment is bounded by the minimum and maximum angular coordinate that evaluates
+to the segment.
+1. The segments are sorted by minimum angular coordinate
+1. A list of n thetas is produced at which to check the radial distance of each segment
+from the blade center.
+1. For each theta:</p>
+<blockquote>
+<div><p>1. The list of segments is sliced to include all segments that have a radial value
+at the theta in question.
+1. A list is made of each radial value for all sliced segments at the angle theta.
+1. If the list of points is odd, then the profile is bounded by the blade circle at
+theta. The radial value for the blade (the blade radius) is added to the list.
+1. The distance between each point and it’s successive neighbor is summed and added to
+a list of heights at each theta.</p>
+</div></blockquote>
+<ol class="arabic simple">
+<li><p>The function returns the average of the list of heights.</p></li>
+</ol>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.cut.Cut.calcTangentForce">
+<span class="sig-name descname"><span class="pre">calcTangentForce</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/cut.html#Cut.calcTangentForce"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.cut.Cut.calcTangentForce" title="Link to this definition">¶</a></dt>
+<dd><p>Returns the force tangent the to cutting tool.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.cut.Cut.calcTangentialPressureCoef">
+<span class="sig-name descname"><span class="pre">calcTangentialPressureCoef</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/cut.html#Cut.calcTangentialPressureCoef"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.cut.Cut.calcTangentialPressureCoef" title="Link to this definition">¶</a></dt>
+<dd><p>Calculates the pressure coefficients for the normal force on the rake face.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.cut.Cut.checkBladeOutsideLoop">
+<span class="sig-name descname"><span class="pre">checkBladeOutsideLoop</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loop</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="reference internal" href="_modules/src/objects/cut.html#Cut.checkBladeOutsideLoop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.cut.Cut.checkBladeOutsideLoop" title="Link to this definition">¶</a></dt>
+<dd><p>Returns True if the blade circle does not intersect (or only tangentially
+intersects) the loop. Fails if the blade is completely enclosed within the loop.
+The blade is allowed to be as close as the tolerance of the workpiece.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.cut.Cut.checkIntxPointsAreInOut">
+<span class="sig-name descname"><span class="pre">checkIntxPointsAreInOut</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">P1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">P2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">CW</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="reference internal" href="_modules/src/objects/cut.html#Cut.checkIntxPointsAreInOut"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.cut.Cut.checkIntxPointsAreInOut" title="Link to this definition">¶</a></dt>
+<dd><p>Determines if the sequential intersection points are arranged as In/Out or Out/In,
+where In indicates the point is where the blade enters the material, and Out is an exit
+point.</p>
+<section id="id6">
+<h3>Process<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h3>
+<p>Generates a point on the blade circle between the two intersection points and checks if
+that point is in the workpiece path. If it is, then the points are arranged In/Out.</p>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.cut.Cut.checkLoopEnclosedInBlade">
+<span class="sig-name descname"><span class="pre">checkLoopEnclosedInBlade</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loop</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="reference internal" href="_modules/src/objects/cut.html#Cut.checkLoopEnclosedInBlade"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.cut.Cut.checkLoopEnclosedInBlade" title="Link to this definition">¶</a></dt>
+<dd><p>Returns True if the loop is entirely enclosed inside the blade circle. The blade
+circle is allowed to intersecting within the tolerance of the workpiece.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.cut.Cut.checkWkpEnclosedInBlade">
+<span class="sig-name descname"><span class="pre">checkWkpEnclosedInBlade</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="reference internal" href="_modules/src/objects/cut.html#Cut.checkWkpEnclosedInBlade"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.cut.Cut.checkWkpEnclosedInBlade" title="Link to this definition">¶</a></dt>
+<dd><p>Returns true if the workpiece is entirely enclosed inside the blade circle
+(indicating a complete cut).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.cut.Cut.clipSegment">
+<span class="sig-name descname"><span class="pre">clipSegment</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">seg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_pos</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_in</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">external</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/cut.html#Cut.clipSegment"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.cut.Cut.clipSegment" title="Link to this definition">¶</a></dt>
+<dd><p>Returns the clipped segment that must start at pt (an intersection point) and end at
+either endpoint in the segment (seg).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>seg</strong> (<em>array_like</em>) – The segment to clip, either 1x2 or 1x3 array of 1x2 point arrays.</p></li>
+<li><p><strong>pt</strong> (<em>array_like</em>) – The intersection point to clip to, as a 1x2 point array.</p></li>
+<li><p><strong>is_pos</strong> (<em>bool</em>) – Indicates that the workpiece loop is defined in a CCW method so that the a cut starts
+at segment i, and then passes through segments i+1…i+n-1 until reaching the out
+segment.</p></li>
+<li><p><strong>is_in</strong> (<em>bool</em>) – Indicates that the intersection point considered is an entry point for the blade
+versus and exit point.</p></li>
+<li><p><strong>external</strong> (<em>bool</em><em>, </em><em>default=True</em>) – True if the returned segment should be the portion of the segment exterior to the
+blade circle (remaining) or interior (removed).</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.cut.Cut.findBladeSegIntxs">
+<span class="sig-name descname"><span class="pre">findBladeSegIntxs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">seg</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/cut.html#Cut.findBladeSegIntxs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.cut.Cut.findBladeSegIntxs" title="Link to this definition">¶</a></dt>
+<dd><p>Finds the intersection points between the saw blade and a given line or arc segment.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.cut.Cut.findBladeWkpIntxs">
+<span class="sig-name descname"><span class="pre">findBladeWkpIntxs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loop</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/cut.html#Cut.findBladeWkpIntxs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.cut.Cut.findBladeWkpIntxs" title="Link to this definition">¶</a></dt>
+<dd><p>Finds the intersection points between the saw blade in its current position
+and the workpiece. The blade will enter the wkp every odd point and exit every
+even point.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.cut.Cut.findNextClippedSegIdx">
+<span class="sig-name descname"><span class="pre">findNextClippedSegIdx</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">not_visited_ps</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seg_indices</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">i</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/cut.html#Cut.findNextClippedSegIdx"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.cut.Cut.findNextClippedSegIdx" title="Link to this definition">¶</a></dt>
+<dd><p>Returns the index for the next clipped segment in the path, with the direction
+decided by the indexing of the loop. Deletes the index from the not_visited_ps
+list.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.cut.Cut.findNextClippedSegs">
+<span class="sig-name descname"><span class="pre">findNextClippedSegs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clipped_segs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_pos</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/cut.html#Cut.findNextClippedSegs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.cut.Cut.findNextClippedSegs" title="Link to this definition">¶</a></dt>
+<dd><p>Returns the set of clipped segments in order based on the index of the next
+connecting segment, p. The connecting segment is out/in based on if is_pos is
+True/False.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.cut.Cut.findRadialHeightAtTheta">
+<span class="sig-name descname"><span class="pre">findRadialHeightAtTheta</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">profile</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">theta</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="_modules/src/objects/cut.html#Cut.findRadialHeightAtTheta"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.cut.Cut.findRadialHeightAtTheta" title="Link to this definition">¶</a></dt>
+<dd><p>Finds the total height of the chip at the angle theta.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.cut.Cut.findVertexByIntxPt">
+<span class="sig-name descname"><span class="pre">findVertexByIntxPt</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span></span></span><a class="reference internal" href="_modules/src/objects/cut.html#Cut.findVertexByIntxPt"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.cut.Cut.findVertexByIntxPt" title="Link to this definition">¶</a></dt>
+<dd><p>Returns a vertex in the loop that whose euclidean distance to the given point,
+pt, is less than the workpiece tolerance. If there are no vertices within that distance,
+returns None.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.cut.Cut.generateClippedArcSeg">
+<span class="sig-name descname"><span class="pre">generateClippedArcSeg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">arc_seg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">endpoints</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/cut.html#Cut.generateClippedArcSeg"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.cut.Cut.generateClippedArcSeg" title="Link to this definition">¶</a></dt>
+<dd><p>Generates an arbitrary segement for an arc bounded by the endpoints and coincident
+with the arc segment.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.cut.Cut.getClippedLoopSegments">
+<span class="sig-name descname"><span class="pre">getClippedLoopSegments</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">intx_pts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seg_indices</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_pos</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loop</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span></span></span><a class="reference internal" href="_modules/src/objects/cut.html#Cut.getClippedLoopSegments"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.cut.Cut.getClippedLoopSegments" title="Link to this definition">¶</a></dt>
+<dd><p>Returns a list of the clipped segments that have intersection points. The clipped
+segments are the segments exterior to the blade circle (remaining after the cut) and
+are indexed by the seg_indices array in the passed loop.</p>
+<p>Note that the intersection points may be updated as a result of the function.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.cut.Cut.getSegmentsInsideCircle">
+<span class="sig-name descname"><span class="pre">getSegmentsInsideCircle</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">intx_pts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seg_indices</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loop</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span></span></span><a class="reference internal" href="_modules/src/objects/cut.html#Cut.getSegmentsInsideCircle"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.cut.Cut.getSegmentsInsideCircle" title="Link to this definition">¶</a></dt>
+<dd><p>Returns the two segments listed by seg_indices as well as all segments between
+which are enclosed within the circle.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.cut.Cut.insertCutArc">
+<span class="sig-name descname"><span class="pre">insertCutArc</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">A</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">B</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_pos</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loop</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/cut.html#Cut.insertCutArc"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.cut.Cut.insertCutArc" title="Link to this definition">¶</a></dt>
+<dd><p>Inserts an arc coicident with the blade circle and terminated by points A
+and B. Fails if the workpiece profile is crossed (not simple).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.cut.Cut.loopIndexingIsPos">
+<span class="sig-name descname"><span class="pre">loopIndexingIsPos</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">intx_pts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seg_indices</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loop</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/cut.html#Cut.loopIndexingIsPos"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.cut.Cut.loopIndexingIsPos" title="Link to this definition">¶</a></dt>
+<dd><p>Returns True if the segment indices for the loop starting at the point A on the
+segment located at index i_in is positive or negative incrementing. That is, if the remaining
+loop is composed of segments at [i_in, i_in+1, i_in+2, …, i_in+k, i_out] or the segments at
+[i_in, i_in-1, i_in-2, …, i_in-k, i_out].</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.cut.Cut.makeNewPath">
+<span class="sig-name descname"><span class="pre">makeNewPath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">seg_indices</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clipped_segs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_pos</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loop</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/cut.html#Cut.makeNewPath"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.cut.Cut.makeNewPath" title="Link to this definition">¶</a></dt>
+<dd><p>Returns a new path containing all the segments between the indices i_in and i_out that
+are outside of the blade circle. The path needs to be cleaned to identify possible loops.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.cut.Cut.path2PolarDomain">
+<span class="sig-name descname"><span class="pre">path2PolarDomain</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">intx_pts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seg_indices</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loop</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span></span></span><a class="reference internal" href="_modules/src/objects/cut.html#Cut.path2PolarDomain"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.cut.Cut.path2PolarDomain" title="Link to this definition">¶</a></dt>
+<dd><p>Returns a 2D list detailing a closed segment path intersecting the blade circle.
+Each entry in the list is of the form: [&lt;polar segment lambda&gt;, &lt;minimum bounding angle&gt;,
+&lt;maximum bounding angle&gt;].</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.cut.Cut.performCutOperation">
+<span class="sig-name descname"><span class="pre">performCutOperation</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/cut.html#Cut.performCutOperation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.cut.Cut.performCutOperation" title="Link to this definition">¶</a></dt>
+<dd><p>Checks the workpiece and blade circle for intersections and clips the resulting
+workpiece profiles.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.cut.Cut.restructurePath">
+<span class="sig-name descname"><span class="pre">restructurePath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">intx_pts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seg_indices</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loop</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/cut.html#Cut.restructurePath"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.cut.Cut.restructurePath" title="Link to this definition">¶</a></dt>
+<dd><p>Deletes each segment in the workpiece path identified as starting at an odd index in
+seg_indices and ending at the following even index in seg_indices. Replaces these segments
+with a single arc that starts at the corresponding intersection points and is centered at the
+saw blade. Clips intersecting segments to intersection points.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.cut.Cut.step">
+<span class="sig-name descname"><span class="pre">step</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/cut.html#Cut.step"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.cut.Cut.step" title="Link to this definition">¶</a></dt>
+<dd><p>Finds the intersection between the blade and workpiece, calculating the average
+radial height of the intersection, and then restructures the workpiece path to be the
+same as the blade circle where intersecting (removing cut material).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.cut.Cut.updateDynamics">
+<span class="sig-name descname"><span class="pre">updateDynamics</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/cut.html#Cut.updateDynamics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.cut.Cut.updateDynamics" title="Link to this definition">¶</a></dt>
+<dd><p>Updates the inputs for each object.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="src-objects-workpiece-module">
+<h2>src.objects.workpiece module<a class="headerlink" href="#src-objects-workpiece-module" title="Link to this heading">¶</a></h2>
+<div class="line-block" id="module-src.objects.workpiece">
+<div class="line">File: workpiece.py</div>
+<div class="line">Info: Presents a model for a constant-profile workpiece that can be cut on a saw.</div>
+<div class="line">Author: John Morris, <a class="reference external" href="mailto:jhmrrs&#37;&#52;&#48;clemson&#46;edu">jhmrrs<span>&#64;</span>clemson<span>&#46;</span>edu</a></div>
+<div class="line">Organization: Product Lifecycle Management Center at Clemson University, <a class="reference external" href="mailto:plmcenter&#37;&#52;&#48;clemson&#46;edu">plmcenter<span>&#64;</span>clemson<span>&#46;</span>edu</a></div>
+<div class="line">Permission: Copyright (C) 2023, John Morris. All rights reserved. Should not be reproduced, edited, sourced, or utilized without written permission from the author or organization</div>
+<div class="line">Version History:</div>
+<div class="line">- 0.1, 18 Jan 2024: Initialized</div>
+</div>
+<dl class="py class">
+<dt class="sig sig-object py" id="src.objects.workpiece.Workpiece">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">src.objects.workpiece.</span></span><span class="sig-name descname"><span class="pre">Workpiece</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loops</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/workpiece.html#Workpiece"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.workpiece.Workpiece" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Twin</span></code></p>
+<p>A workpiece that operations can be performed on. For now assumed to have a constant profile.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>loops</strong> (<em>list</em><em>, </em><em>default=None; meters</em>) – A list (len n) of lists (len 2,3) of lists (len 2). Each minor list represents a vertex
+(x,y coordinate pair) on the cross-section of the workpiece. The major list represents
+each segment that makes up that cross-section profile. See note.</p></li>
+<li><p><strong>**kwargs</strong> (<em>dict</em><em>, </em><em>optional</em>) – <p>Optional editing of state variables during initialization. Possible arguments are:</p>
+<dl class="simple">
+<dt>E<span class="classifier">float, default=69e9 Pa</span></dt><dd><p>Young’s modulus for the workpiece.</p>
+</dd>
+<dt>L<span class="classifier">float, default=1 meter</span></dt><dd><p>Length of the workpiece.</p>
+</dd>
+<dt>tol<span class="classifier">float, default=1e-9 meters</span></dt><dd><p>Tolerance for differentiating between points. No segment should be shorter than the
+provided tolerance.</p>
+</dd>
+</dl>
+</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ol class="arabic simple">
+<li><dl class="simple">
+<dt>Creating the loops:</dt><dd><p>1. The cross-section is assumed to be constant throughout the piece.
+1. A representative cross-section can be composed of line segments and arc segments. The first
+two points are always the end points of a segment. Because segments must be in order,
+this means that the first point of any segment will always be the same as the second point in
+the segment preceeding it.
+1. Arc segments are given a third point, which can be any arbitrary
+point on the arc. Note that full circles are not allowed, instead break the path into two
+hemispheres.
+1. The profile may include multiple closed loops, where each segment shares a point
+with another segment in the loop. A full profile may not have loops that intersect or that
+enclose one other.</p>
+</dd>
+</dl>
+</li>
+</ol>
+<p class="rubric">Example</p>
+<p><a href="#id7"><span class="problematic" id="id8">``</span></a>`
+# Square, 10 cm wide beam
+path = list()
+path.append([[0,0], [1,0]])
+path.append([[1,0], [1,1]])
+path.append([[1,1], [0,1]])
+path.append([[0,1], [0,0]]) #Optional to close path
+wkp_square = Workpiece(path=path)</p>
+<p># Circular, 10 cm wide beam
+path = list()
+path.append([[1,0], [-1,0], [0,1]]) #Top hemisphere
+path.append([[-1,0], [1,0], [0,-1]]) #Bottom hemisphere
+wkp_circle = Workpiece(path=path)
+<a href="#id9"><span class="problematic" id="id10">``</span></a><a href="#id11"><span class="problematic" id="id12">`</span></a></p>
+<p>TODO: Make the path member a function that returns the profile at a specific length
+TODO: Make a function that transforms the profile path for different miter angles</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.workpiece.Workpiece.cleanLoops">
+<span class="sig-name descname"><span class="pre">cleanLoops</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">segs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span></span></span><a class="reference internal" href="_modules/src/objects/workpiece.html#Workpiece.cleanLoops"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.workpiece.Workpiece.cleanLoops" title="Link to this definition">¶</a></dt>
+<dd><p>Cleans the list of points that comprise the cross-sectional path. Will not perfectly
+make a profile, but will close open profiles, and check that all points are valid coordinate
+tuples.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>points</strong> (<em>list</em><em>, </em><em>optional</em>) – <p>A list of tuples all with a length of 2, representing the vertices (x, y) of
+the profile of the workpiece. If not provided, function accesses internal path member.</p>
+<p>Note origin of the coordinate system is at the intersection of the table and guard of the saw.
+Any coordinate set will be shifted so that the leftmost x and bottommost y is 0.</p>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.workpiece.Workpiece.findLoops">
+<span class="sig-name descname"><span class="pre">findLoops</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">segs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/workpiece.html#Workpiece.findLoops"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.workpiece.Workpiece.findLoops" title="Link to this definition">¶</a></dt>
+<dd><p>Returns a list of enclosed loops from the set of segments. Segments must be ordered.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.workpiece.Workpiece.findMinimumCoord">
+<span class="sig-name descname"><span class="pre">findMinimumCoord</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loops</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/workpiece.html#Workpiece.findMinimumCoord"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.workpiece.Workpiece.findMinimumCoord" title="Link to this definition">¶</a></dt>
+<dd><p>Returns the most negative coordinate in the loops set.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>loops</strong> (<em>list</em><em>, </em><em>optional</em>) – A list of loops, each defined as a list of segments.</p></li>
+<li><p><strong>index</strong> (<em>int</em><em>, </em><em>default=0</em>) – The index of the coordinate to minimize.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>any</strong></p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>the minimum coordinate at the specified index in the set</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.workpiece.Workpiece.makePath">
+<span class="sig-name descname"><span class="pre">makePath</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Path</span></span></span><a class="reference internal" href="_modules/src/objects/workpiece.html#Workpiece.makePath"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.workpiece.Workpiece.makePath" title="Link to this definition">¶</a></dt>
+<dd><p>Generates single Path object from workpiece loops.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.workpiece.Workpiece.plot">
+<span class="sig-name descname"><span class="pre">plot</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span></span></span><a class="reference internal" href="_modules/src/objects/workpiece.html#Workpiece.plot"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.workpiece.Workpiece.plot" title="Link to this definition">¶</a></dt>
+<dd><p>Returns a list of matplotlib PathPatch objects defining the boundary of the object.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.workpiece.Workpiece.pointInLoop">
+<span class="sig-name descname"><span class="pre">pointInLoop</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">P</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="reference internal" href="_modules/src/objects/workpiece.html#Workpiece.pointInLoop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.workpiece.Workpiece.pointInLoop" title="Link to this definition">¶</a></dt>
+<dd><p>Returns True if the point lies within the workpiece loops. Points on the boundary are
+treated as being outside the loops.</p>
+<section id="id13">
+<h3>Process<a class="headerlink" href="#id13" title="Link to this heading">¶</a></h3>
+<p>1. Create bounding box around path.
+1. Identify point on a horizontal line the left of the bounding box (ensured to be outside
+the profile).
+1. Make a ray from the outside point to point P and count how many times the path intersects
+the ray. An odd number of intersections indicates that P is on the interior of the path.</p>
+</section>
+<section id="edge-cases">
+<h3>Edge Cases<a class="headerlink" href="#edge-cases" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Intersections with horizontal lines are treated as no intersection occuring.</p></li>
+<li><p>For intersections with vertices, only odd segments are counted.</p></li>
+</ul>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.workpiece.Workpiece.shiftPositive">
+<span class="sig-name descname"><span class="pre">shiftPositive</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loops</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span></span></span><a class="reference internal" href="_modules/src/objects/workpiece.html#Workpiece.shiftPositive"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.workpiece.Workpiece.shiftPositive" title="Link to this definition">¶</a></dt>
+<dd><p>Shifts the points so that all points are in the First Quadrant (positive) and,
+if possible, at least 1 point is at the origin. Only shifts in the XY plane.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.workpiece.Workpiece.updatePatches">
+<span class="sig-name descname"><span class="pre">updatePatches</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/workpiece.html#Workpiece.updatePatches"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.workpiece.Workpiece.updatePatches" title="Link to this definition">¶</a></dt>
+<dd><p>Updates the patch of the wkp with wkp path.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.workpiece.Workpiece.validateLoops">
+<span class="sig-name descname"><span class="pre">validateLoops</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loops</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/workpiece.html#Workpiece.validateLoops"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.workpiece.Workpiece.validateLoops" title="Link to this definition">¶</a></dt>
+<dd><p>Makes sure that all loops are composed of valid segments.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="src.objects.workpiece.defaultPath">
+<span class="sig-prename descclassname"><span class="pre">src.objects.workpiece.</span></span><span class="sig-name descname"><span class="pre">defaultPath</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/workpiece.html#defaultPath"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.workpiece.defaultPath" title="Link to this definition">¶</a></dt>
+<dd><p>Makes the path of a square, 10 cm wide beam.</p>
+</dd></dl>
+
+</section>
+<section id="module-src.objects.blade">
+<span id="src-objects-blade-module"></span><h2>src.objects.blade module<a class="headerlink" href="#module-src.objects.blade" title="Link to this heading">¶</a></h2>
+<div class="line-block">
+<div class="line">File: blade.py</div>
+<div class="line">Info: Presents the state-model for a saw blade, along with associated classes</div>
+<div class="line">Author: John Morris, <a class="reference external" href="mailto:jhmrrs&#37;&#52;&#48;clemson&#46;edu">jhmrrs<span>&#64;</span>clemson<span>&#46;</span>edu</a></div>
+<div class="line">Organization: Product Lifecycle Management Center at Clemson University, <a class="reference external" href="mailto:plmcenter&#37;&#52;&#48;clemson&#46;edu">plmcenter<span>&#64;</span>clemson<span>&#46;</span>edu</a></div>
+<div class="line">Permission: Copyright (C) 2023, John Morris. All rights reserved. Should not be reproduced, edited, sourced, or utilized without written permission from the author or organization</div>
+</div>
+<div class="line-block">
+<div class="line">Version History:</div>
+<div class="line">- 0.0, 6 Dec 2023: Initialized</div>
+<div class="line">- 0.1, 2 Jan 2023: Basic dynamics formalized</div>
+</div>
+<dl class="py class">
+<dt class="sig sig-object py" id="src.objects.blade.Blade">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">src.objects.blade.</span></span><span class="sig-name descname"><span class="pre">Blade</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/blade.html#Blade"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.blade.Blade" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Twin</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">DynamicBlock</span></code></p>
+<p>A primitive state model of a saw blade.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>**kwargs</strong> (<em>dict</em><em>, </em><em>optional</em>) – <p>Optional editing of state variables during initialization. Possible arguments are:</p>
+<dl class="simple">
+<dt>name<span class="classifier">str, default=”Blade”</span></dt><dd><p>The identification string for the blade.</p>
+</dd>
+<dt>first_use_date<span class="classifier">datetime, optional</span></dt><dd><p>The date the blade was first used.</p>
+</dd>
+<dt>radius<span class="classifier">float, default=0.092 meters</span></dt><dd><p>The radius of the blade.</p>
+</dd>
+<dt>num_teeth<span class="classifier">int, default=56</span></dt><dd><p>The number of teeth on the blade.</p>
+</dd>
+<dt>weight<span class="classifier">float, default=0.01 kg</span></dt><dd><p>The weight of the blade.</p>
+</dd>
+<dt>thickness<span class="classifier">float, default=0.0022 meters</span></dt><dd><p>The thickness of the blade plate.</p>
+</dd>
+<dt>kerf<span class="classifier">float. default=0.0027 meters</span></dt><dd><p>The width of the slot left by the blade, or width of material removed.</p>
+</dd>
+<dt>arbor_dia<span class="classifier">float, default=0.015875 meters</span></dt><dd><p>The diameter of the arbor hole on the blade.</p>
+</dd>
+<dt>hook<span class="classifier">float, default=-0.104 radians</span></dt><dd><p>The hook angle of the blade teeth.</p>
+</dd>
+<dt>rake<span class="classifier">float, default=0 radians</span></dt><dd><p>The rake angle of the blade teeth.</p>
+</dd>
+<dt>tooth_type<span class="classifier">ToothType, default=ToothType.FTG</span></dt><dd><p>The geometry and configuration of the teeth on the blade, inputted as a enumerated object.</p>
+</dd>
+<dt>rotational_friction<span class="classifier">float, default=0.01 N*m</span></dt><dd><p>Average force of friction resisting rotation.</p>
+</dd>
+<dt>moi<span class="classifier">float; kg*m^2</span></dt><dd><p>The blade’s moment of inertia; if not passed then the MoI is a caluclated value.</p>
+</dd>
+<dt>theta<span class="classifier">float, default=0 radians</span></dt><dd><p>The angular position of the blade, measured from an arbitrary starting point.</p>
+</dd>
+<dt>phi<span class="classifier">float, default=pi/2 radians</span></dt><dd><p>The vertical orientation of the blade measured relative to the cutting surface, so that upright is at pi/2.</p>
+</dd>
+<dt>phidot<span class="classifier">float, default=0 rad/s</span></dt><dd><p>The rotation of the blade around its secondary axis.</p>
+</dd>
+<dt>omega<span class="classifier">float, default=0 rad/s</span></dt><dd><p>The angular velocity of the blade.</p>
+</dd>
+<dt>alpha<span class="classifier">float, default=0 rad/s</span></dt><dd><p>The angular acceleration of the blade.</p>
+</dd>
+</dl>
+</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.blade.Blade.calcMomentOfInertia">
+<span class="sig-name descname"><span class="pre">calcMomentOfInertia</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/blade.html#Blade.calcMomentOfInertia"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.blade.Blade.calcMomentOfInertia" title="Link to this definition">¶</a></dt>
+<dd><p>Calculates the Moment of Inertia (assuming a disc), in kg*m^2 about the primary axis.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.blade.Blade.getInputs">
+<span class="sig-name descname"><span class="pre">getInputs</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/blade.html#Blade.getInputs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.blade.Blade.getInputs" title="Link to this definition">¶</a></dt>
+<dd><p>Returns an array of the current values for the inputs.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.blade.Blade.getNumEngagedTeeth">
+<span class="sig-name descname"><span class="pre">getNumEngagedTeeth</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">swept_angle</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/blade.html#Blade.getNumEngagedTeeth"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.blade.Blade.getNumEngagedTeeth" title="Link to this definition">¶</a></dt>
+<dd><p>Returns the number of engaged in the blade, for an engagement over the given angle
+(in radians).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.blade.Blade.getStates">
+<span class="sig-name descname"><span class="pre">getStates</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/blade.html#Blade.getStates"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.blade.Blade.getStates" title="Link to this definition">¶</a></dt>
+<dd><p>Returns a array of the current values for the dynamic state variables.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.blade.Blade.plot">
+<span class="sig-name descname"><span class="pre">plot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/blade.html#Blade.plot"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.blade.Blade.plot" title="Link to this definition">¶</a></dt>
+<dd><p>Returns list of matplotlib patch object of entity.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.blade.Blade.plotRadialLine">
+<span class="sig-name descname"><span class="pre">plotRadialLine</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/blade.html#Blade.plotRadialLine"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.blade.Blade.plotRadialLine" title="Link to this definition">¶</a></dt>
+<dd><p>Returns a path of radial line from center of blade to a point on the radius
+rotated by theta_blade.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.blade.Blade.setInputs">
+<span class="sig-name descname"><span class="pre">setInputs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inputs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">[0.0]</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/blade.html#Blade.setInputs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.blade.Blade.setInputs" title="Link to this definition">¶</a></dt>
+<dd><p>Sets the input variables for the object in order: torque</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.blade.Blade.setStates">
+<span class="sig-name descname"><span class="pre">setStates</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">states</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">[0.0,</span> <span class="pre">0.0,</span> <span class="pre">0.0,</span> <span class="pre">0.0]</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/blade.html#Blade.setStates"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.blade.Blade.setStates" title="Link to this definition">¶</a></dt>
+<dd><p>Sets the state variables for the object in order: theta, omega, phi, phidot.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.blade.Blade.step">
+<span class="sig-name descname"><span class="pre">step</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dt</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/blade.html#Blade.step"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.blade.Blade.step" title="Link to this definition">¶</a></dt>
+<dd><p>Updates the dynamic values of the object over a single time step.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.blade.Blade.updatePatches">
+<span class="sig-name descname"><span class="pre">updatePatches</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/blade.html#Blade.updatePatches"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.blade.Blade.updatePatches" title="Link to this definition">¶</a></dt>
+<dd><p>Updates patch objects of entity.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="src.objects.blade.ToothType">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">src.objects.blade.</span></span><span class="sig-name descname"><span class="pre">ToothType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">names=&lt;not</span> <span class="pre">given&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">*values</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">module=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">qualname=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">type=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start=1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">boundary=None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/blade.html#ToothType"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.blade.ToothType" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Enum</span></code></p>
+<p>The type of tooth used in terms of in-line configuration and shape.
+From: <a class="reference external" href="https://circularsawblade.net/ftg">https://circularsawblade.net/ftg</a></p>
+<section id="values">
+<h3>Values<a class="headerlink" href="#values" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><cite>FTG</cite> (Flat Top Grind): Triangular, in-line geometry.</p></li>
+<li><p><cite>TCG</cite> (Triple Chip Grind): Alternates FTG and relieved tooth shapes.</p></li>
+<li><p><cite>ATB</cite> (Alternate Top Bevel): Alternating beveled teeth.</p></li>
+<li><p><cite>ATBR</cite> (Alternate Top Bevel with Raker): Alternates ATB and FTG teeth (usually 4:1 ratio).</p></li>
+<li><p><cite>HATB</cite> (High Alternate Top Bevel): ATB with a steeper bevel angle.</p></li>
+</ul>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="src.objects.blade.ToothType.ATB">
+<span class="sig-name descname"><span class="pre">ATB</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">3</span></em><a class="headerlink" href="#src.objects.blade.ToothType.ATB" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="src.objects.blade.ToothType.ATBR">
+<span class="sig-name descname"><span class="pre">ATBR</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">4</span></em><a class="headerlink" href="#src.objects.blade.ToothType.ATBR" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="src.objects.blade.ToothType.FTG">
+<span class="sig-name descname"><span class="pre">FTG</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#src.objects.blade.ToothType.FTG" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="src.objects.blade.ToothType.HATB">
+<span class="sig-name descname"><span class="pre">HATB</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">5</span></em><a class="headerlink" href="#src.objects.blade.ToothType.HATB" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="src.objects.blade.ToothType.TCG">
+<span class="sig-name descname"><span class="pre">TCG</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">2</span></em><a class="headerlink" href="#src.objects.blade.ToothType.TCG" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</section>
+</dd></dl>
+
+</section>
+<section id="module-src.objects.motor">
+<span id="src-objects-motor-module"></span><h2>src.objects.motor module<a class="headerlink" href="#module-src.objects.motor" title="Link to this heading">¶</a></h2>
+<div class="line-block">
+<div class="line">File: motor.py</div>
+<div class="line">Info: Presents the state-model for a DC motor, along with associated classes</div>
+<div class="line">Author: John Morris, <a class="reference external" href="mailto:jhmrrs&#37;&#52;&#48;clemson&#46;edu">jhmrrs<span>&#64;</span>clemson<span>&#46;</span>edu</a></div>
+<div class="line">Organizaux: Product Lifecycle Management Center at Clemson University, <a class="reference external" href="mailto:plmcenter&#37;&#52;&#48;clemson&#46;edu">plmcenter<span>&#64;</span>clemson<span>&#46;</span>edu</a></div>
+<div class="line">Permission: Copyright (C) 2023, John Morris. All rights reserved. Should not be reproduced, edited, sourced, or utilized without written permission from the author or organization</div>
+<div class="line">References: <a class="reference external" href="https://ctms.engin.umich.edu/CTMS/index.php?example=MotorSpeed&amp;section=SystemModeling">https://ctms.engin.umich.edu/CTMS/index.php?example=MotorSpeed&amp;section=SystemModeling</a></div>
+</div>
+<div class="line-block">
+<div class="line">Version History:</div>
+<div class="line">- 0.0, 6 Dec 2023: Initialized</div>
+</div>
+<dl class="py class">
+<dt class="sig sig-object py" id="src.objects.motor.Motor">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">src.objects.motor.</span></span><span class="sig-name descname"><span class="pre">Motor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/motor.html#Motor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.motor.Motor" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Twin</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">DynamicBlock</span></code></p>
+<p>A primitive state model for a DC motor.</p>
+<section id="id14">
+<h3>Parameters:<a class="headerlink" href="#id14" title="Link to this heading">¶</a></h3>
+<dl>
+<dt><a href="#id15"><span class="problematic" id="id16">**</span></a>kwargs<span class="classifier">dict, optional</span></dt><dd><p>Optional editing of state variables during initialization. Possible arguments are:</p>
+<dl class="simple">
+<dt>id<span class="classifier">str, default=”0”</span></dt><dd><p>The identification number of the motor.</p>
+</dd>
+<dt>V_M<span class="classifier">float, default=18.</span></dt><dd><p>The typical supply voltage for the motor.</p>
+</dd>
+<dt>K_M<span class="classifier">float, default=0.01</span></dt><dd><p>Motor constant (AKA torque constant, back-EMF constant), in N*m/A.</p>
+</dd>
+<dt>J_M<span class="classifier">float, default=0.01</span></dt><dd><p>The moment of inertia for the rotor, in kg*m^2.</p>
+</dd>
+<dt>B_M<span class="classifier">float, default=0.1</span></dt><dd><p>The coefficient of viscous friction, proportional to the speed of the rotor, in N*m*s.</p>
+</dd>
+<dt>R_M<span class="classifier">float, default=1.</span></dt><dd><p>The electrical resistance of the armature, in ohms.</p>
+</dd>
+<dt>L_M<span class="classifier">float, default=0.5</span></dt><dd><p>The electrical inductance of the copper winding, in henries</p>
+</dd>
+<dt>theta<span class="classifier">float, default=0.0</span></dt><dd><p>Angular position of motor shaft, measured CCW from the abscissa, in rad</p>
+</dd>
+<dt>omega<span class="classifier">float, default=0.0</span></dt><dd><p>Angular velocity of motor shaft, with CCW as positive, in rad/s</p>
+</dd>
+<dt>current<span class="classifier">float, default=0.</span></dt><dd><p>Current inherent in motor, in amps</p>
+</dd>
+<dt>load<span class="classifier">float, default=0.0</span></dt><dd><p>Torque applied to the motor from the payload, in N*m</p>
+</dd>
+<dt>voltage<span class="classifier">float, default=0.0</span></dt><dd><p>Voltage applied to the motor, in volts</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.motor.Motor.calcTorque">
+<span class="sig-name descname"><span class="pre">calcTorque</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/motor.html#Motor.calcTorque"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.motor.Motor.calcTorque" title="Link to this definition">¶</a></dt>
+<dd><p>Returns the torque based off the current in the motor.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.motor.Motor.getInputs">
+<span class="sig-name descname"><span class="pre">getInputs</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span></span></span><a class="reference internal" href="_modules/src/objects/motor.html#Motor.getInputs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.motor.Motor.getInputs" title="Link to this definition">¶</a></dt>
+<dd><p>Returns an array of the current values for the inputs.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.motor.Motor.getStates">
+<span class="sig-name descname"><span class="pre">getStates</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span></span></span><a class="reference internal" href="_modules/src/objects/motor.html#Motor.getStates"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.motor.Motor.getStates" title="Link to this definition">¶</a></dt>
+<dd><p>Returns a array of the current values for the dynamic state variables.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.motor.Motor.setInputs">
+<span class="sig-name descname"><span class="pre">setInputs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inputs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">[0.0,</span> <span class="pre">0.0]</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/motor.html#Motor.setInputs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.motor.Motor.setInputs" title="Link to this definition">¶</a></dt>
+<dd><p>Sets the input variables for the object in order: torque</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.motor.Motor.setStates">
+<span class="sig-name descname"><span class="pre">setStates</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">states</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">[0.0,</span> <span class="pre">0.0,</span> <span class="pre">0.0]</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/motor.html#Motor.setStates"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.motor.Motor.setStates" title="Link to this definition">¶</a></dt>
+<dd><p>Sets the state variables for the object in order: theta, omega, phi, phidot.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.objects.motor.Motor.step">
+<span class="sig-name descname"><span class="pre">step</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dt</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/objects/motor.html#Motor.step"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#src.objects.motor.Motor.step" title="Link to this definition">¶</a></dt>
+<dd><p>Updates the dynamic values of the object over a single time step.</p>
+</dd></dl>
+
+</section>
+</dd></dl>
+
+</section>
+<section id="module-src.objects">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-src.objects" title="Link to this heading">¶</a></h2>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">src.objects package</a><ul>
+<li><a class="reference internal" href="#submodules">Submodules</a></li>
+<li><a class="reference internal" href="#src-objects-chopsaw-module">src.objects.chopsaw module</a></li>
+<li><a class="reference internal" href="#src-objects-structure-module">src.objects.structure module</a><ul>
+<li><a class="reference internal" href="#src.objects.structure.Arm"><code class="docutils literal notranslate"><span class="pre">Arm</span></code></a><ul>
+<li><a class="reference internal" href="#src.objects.structure.Arm.plot"><code class="docutils literal notranslate"><span class="pre">Arm.plot()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.structure.Arm.plotAngularArmPatch"><code class="docutils literal notranslate"><span class="pre">Arm.plotAngularArmPatch()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.structure.Arm.plotLinearArmPatch"><code class="docutils literal notranslate"><span class="pre">Arm.plotLinearArmPatch()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.structure.Arm.plotSliderArmPatch"><code class="docutils literal notranslate"><span class="pre">Arm.plotSliderArmPatch()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.structure.Arm.updateAngularArmPatch"><code class="docutils literal notranslate"><span class="pre">Arm.updateAngularArmPatch()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.structure.Arm.updateLinearArmPatch"><code class="docutils literal notranslate"><span class="pre">Arm.updateLinearArmPatch()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.structure.Arm.updatePatches"><code class="docutils literal notranslate"><span class="pre">Arm.updatePatches()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.structure.Arm.updateSliderPatch"><code class="docutils literal notranslate"><span class="pre">Arm.updateSliderPatch()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#src.objects.structure.Table"><code class="docutils literal notranslate"><span class="pre">Table</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#module-src.objects.cut">src.objects.cut module</a><ul>
+<li><a class="reference internal" href="#src.objects.cut.Cut"><code class="docutils literal notranslate"><span class="pre">Cut</span></code></a><ul>
+<li><a class="reference internal" href="#src.objects.cut.Cut.arrangeIntxPointsByInOut"><code class="docutils literal notranslate"><span class="pre">Cut.arrangeIntxPointsByInOut()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.cut.Cut.calcAverageChipDepth"><code class="docutils literal notranslate"><span class="pre">Cut.calcAverageChipDepth()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.cut.Cut.calcCutArea"><code class="docutils literal notranslate"><span class="pre">Cut.calcCutArea()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.cut.Cut.calcNormalPressureCoef"><code class="docutils literal notranslate"><span class="pre">Cut.calcNormalPressureCoef()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.cut.Cut.calcPressureCoef"><code class="docutils literal notranslate"><span class="pre">Cut.calcPressureCoef()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.cut.Cut.calcRadialDistanceByPoints"><code class="docutils literal notranslate"><span class="pre">Cut.calcRadialDistanceByPoints()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.cut.Cut.calcTangentForce"><code class="docutils literal notranslate"><span class="pre">Cut.calcTangentForce()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.cut.Cut.calcTangentialPressureCoef"><code class="docutils literal notranslate"><span class="pre">Cut.calcTangentialPressureCoef()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.cut.Cut.checkBladeOutsideLoop"><code class="docutils literal notranslate"><span class="pre">Cut.checkBladeOutsideLoop()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.cut.Cut.checkIntxPointsAreInOut"><code class="docutils literal notranslate"><span class="pre">Cut.checkIntxPointsAreInOut()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.cut.Cut.checkLoopEnclosedInBlade"><code class="docutils literal notranslate"><span class="pre">Cut.checkLoopEnclosedInBlade()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.cut.Cut.checkWkpEnclosedInBlade"><code class="docutils literal notranslate"><span class="pre">Cut.checkWkpEnclosedInBlade()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.cut.Cut.clipSegment"><code class="docutils literal notranslate"><span class="pre">Cut.clipSegment()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.cut.Cut.findBladeSegIntxs"><code class="docutils literal notranslate"><span class="pre">Cut.findBladeSegIntxs()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.cut.Cut.findBladeWkpIntxs"><code class="docutils literal notranslate"><span class="pre">Cut.findBladeWkpIntxs()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.cut.Cut.findNextClippedSegIdx"><code class="docutils literal notranslate"><span class="pre">Cut.findNextClippedSegIdx()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.cut.Cut.findNextClippedSegs"><code class="docutils literal notranslate"><span class="pre">Cut.findNextClippedSegs()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.cut.Cut.findRadialHeightAtTheta"><code class="docutils literal notranslate"><span class="pre">Cut.findRadialHeightAtTheta()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.cut.Cut.findVertexByIntxPt"><code class="docutils literal notranslate"><span class="pre">Cut.findVertexByIntxPt()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.cut.Cut.generateClippedArcSeg"><code class="docutils literal notranslate"><span class="pre">Cut.generateClippedArcSeg()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.cut.Cut.getClippedLoopSegments"><code class="docutils literal notranslate"><span class="pre">Cut.getClippedLoopSegments()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.cut.Cut.getSegmentsInsideCircle"><code class="docutils literal notranslate"><span class="pre">Cut.getSegmentsInsideCircle()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.cut.Cut.insertCutArc"><code class="docutils literal notranslate"><span class="pre">Cut.insertCutArc()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.cut.Cut.loopIndexingIsPos"><code class="docutils literal notranslate"><span class="pre">Cut.loopIndexingIsPos()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.cut.Cut.makeNewPath"><code class="docutils literal notranslate"><span class="pre">Cut.makeNewPath()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.cut.Cut.path2PolarDomain"><code class="docutils literal notranslate"><span class="pre">Cut.path2PolarDomain()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.cut.Cut.performCutOperation"><code class="docutils literal notranslate"><span class="pre">Cut.performCutOperation()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.cut.Cut.restructurePath"><code class="docutils literal notranslate"><span class="pre">Cut.restructurePath()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.cut.Cut.step"><code class="docutils literal notranslate"><span class="pre">Cut.step()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.cut.Cut.updateDynamics"><code class="docutils literal notranslate"><span class="pre">Cut.updateDynamics()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#src-objects-workpiece-module">src.objects.workpiece module</a><ul>
+<li><a class="reference internal" href="#src.objects.workpiece.Workpiece"><code class="docutils literal notranslate"><span class="pre">Workpiece</span></code></a><ul>
+<li><a class="reference internal" href="#src.objects.workpiece.Workpiece.cleanLoops"><code class="docutils literal notranslate"><span class="pre">Workpiece.cleanLoops()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.workpiece.Workpiece.findLoops"><code class="docutils literal notranslate"><span class="pre">Workpiece.findLoops()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.workpiece.Workpiece.findMinimumCoord"><code class="docutils literal notranslate"><span class="pre">Workpiece.findMinimumCoord()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.workpiece.Workpiece.makePath"><code class="docutils literal notranslate"><span class="pre">Workpiece.makePath()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.workpiece.Workpiece.plot"><code class="docutils literal notranslate"><span class="pre">Workpiece.plot()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.workpiece.Workpiece.pointInLoop"><code class="docutils literal notranslate"><span class="pre">Workpiece.pointInLoop()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.workpiece.Workpiece.shiftPositive"><code class="docutils literal notranslate"><span class="pre">Workpiece.shiftPositive()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.workpiece.Workpiece.updatePatches"><code class="docutils literal notranslate"><span class="pre">Workpiece.updatePatches()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.workpiece.Workpiece.validateLoops"><code class="docutils literal notranslate"><span class="pre">Workpiece.validateLoops()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#src.objects.workpiece.defaultPath"><code class="docutils literal notranslate"><span class="pre">defaultPath()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#module-src.objects.blade">src.objects.blade module</a><ul>
+<li><a class="reference internal" href="#src.objects.blade.Blade"><code class="docutils literal notranslate"><span class="pre">Blade</span></code></a><ul>
+<li><a class="reference internal" href="#src.objects.blade.Blade.calcMomentOfInertia"><code class="docutils literal notranslate"><span class="pre">Blade.calcMomentOfInertia()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.blade.Blade.getInputs"><code class="docutils literal notranslate"><span class="pre">Blade.getInputs()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.blade.Blade.getNumEngagedTeeth"><code class="docutils literal notranslate"><span class="pre">Blade.getNumEngagedTeeth()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.blade.Blade.getStates"><code class="docutils literal notranslate"><span class="pre">Blade.getStates()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.blade.Blade.plot"><code class="docutils literal notranslate"><span class="pre">Blade.plot()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.blade.Blade.plotRadialLine"><code class="docutils literal notranslate"><span class="pre">Blade.plotRadialLine()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.blade.Blade.setInputs"><code class="docutils literal notranslate"><span class="pre">Blade.setInputs()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.blade.Blade.setStates"><code class="docutils literal notranslate"><span class="pre">Blade.setStates()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.blade.Blade.step"><code class="docutils literal notranslate"><span class="pre">Blade.step()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.blade.Blade.updatePatches"><code class="docutils literal notranslate"><span class="pre">Blade.updatePatches()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#src.objects.blade.ToothType"><code class="docutils literal notranslate"><span class="pre">ToothType</span></code></a><ul>
+<li><a class="reference internal" href="#src.objects.blade.ToothType.ATB"><code class="docutils literal notranslate"><span class="pre">ToothType.ATB</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.blade.ToothType.ATBR"><code class="docutils literal notranslate"><span class="pre">ToothType.ATBR</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.blade.ToothType.FTG"><code class="docutils literal notranslate"><span class="pre">ToothType.FTG</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.blade.ToothType.HATB"><code class="docutils literal notranslate"><span class="pre">ToothType.HATB</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.blade.ToothType.TCG"><code class="docutils literal notranslate"><span class="pre">ToothType.TCG</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#module-src.objects.motor">src.objects.motor module</a><ul>
+<li><a class="reference internal" href="#src.objects.motor.Motor"><code class="docutils literal notranslate"><span class="pre">Motor</span></code></a><ul>
+<li><a class="reference internal" href="#src.objects.motor.Motor.calcTorque"><code class="docutils literal notranslate"><span class="pre">Motor.calcTorque()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.motor.Motor.getInputs"><code class="docutils literal notranslate"><span class="pre">Motor.getInputs()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.motor.Motor.getStates"><code class="docutils literal notranslate"><span class="pre">Motor.getStates()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.motor.Motor.setInputs"><code class="docutils literal notranslate"><span class="pre">Motor.setInputs()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.motor.Motor.setStates"><code class="docutils literal notranslate"><span class="pre">Motor.setStates()</span></code></a></li>
+<li><a class="reference internal" href="#src.objects.motor.Motor.step"><code class="docutils literal notranslate"><span class="pre">Motor.step()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#module-src.objects">Module contents</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/src.objects.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">DT-Chop_Saw 0.1 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">src.objects package</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2023, John_Morris.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.2.6.
+    </div>
+  </body>
+</html>

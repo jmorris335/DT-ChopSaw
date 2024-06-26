@@ -213,6 +213,7 @@ def shiftPoints(points, shift, inverse: bool=False, copy: bool=False):
     if not hasattr(points[0], '__len__'): points = [points]
     pts = [p[:] for p in points] if copy else points #deepcopy
     for pt in pts:
+        if isinstance(pt, tuple): pt = list(pt)
         for i in range(len(pt)):
             if len(shift) > i: 
                 pt[i] += shift[i] * [1, -1][inverse]
