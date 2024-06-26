@@ -24,8 +24,287 @@ from src.mocap.calibration import calibCamIntrinsic, stereoCalibration
 from src.mocap.camera_interface import VideoInterface
 from src.mocap.markers import Marker, Aruco
 from src.auxiliary.geometry import pointDistance
+from src.auxiliary.transform import Transform
 from src.db.actor import DBActor
 
+log.basicConfig(level=log.DEBUG)
+
+__slots__ = ("label", "db_id", "values")
+class Param:
+    """Container for a generic parameter to be inserted into the DB."""
+    def __init__(self, label: str, db_id: int, calculated_value: float=0.0):
+        self.label = label
+        self.db_id = db_id       
+        self.value = calculated_value
+        self.recorded_values = list()
+
+    def push(self, value: float, max_size: int=9):
+        """Adds the value to the object and slices the array if too large."""
+        self.recorded_values.append(value)
+        self.recorded_values[-max_size:]
+
+    def median(self, size: int=None) -> float:
+        """Returns the median of the parameter values (scooping from the end)."""
+        if size is None:
+            return np.median(self.recorded_values)
+        return np.median(self.recorded_values[-size:])
+    
+    def set(self, value: float, max_size: int=None, use_median: bool=False, median_size: int=None):
+        """Adds the new value to the object and sets the current value as either
+        `value` or the median of the `recorded_values`, depending on `use_median`.
+        """
+        if max_size is None:
+            self.push(value)
+        else: self.push(value, max_size)
+        if use_median:
+            self.value = self.recorded_values[-1]
+        else:
+            self.value = self.median(median_size)
+
+    def sample(self, size: int=3) -> list:
+        """Returns the last several elements of the parameter values."""
+        return self.recorded_values[-size:]
+    
+
+def startMocap(camera1, camera2, projection_mtrxs: list=None, calib_frames=None):
+    """Caller for the motion capture process"""
+    cameras = openCameras([camera1, camera2])
+    if projection_mtrxs is None:
+        if calib_frames is None:
+            calib_frames = getCalibrationFrames()
+        proj_mtrxs, cam_mtrxs, dist_coefs = calibrate(calib_frames)
+
+    doMocap(cameras, proj_mtrxs, cam_mtrxs, dist_coefs)
+    releaseCameras(cameras)
+
+def openCameras(cameras: list):
+    """Opens the cameras."""
+    return [cv.VideoCapture(cam) for cam in cameras]
+
+def getCalibrationFrames(camera_ids: list=[0, 1]) -> list:
+    """Opens cameras and collects calibration images."""
+    dir_path = "src/mocap/media"
+    num_frames = 12
+    vi = VideoInterface([0, 1], dir_path=dir_path)
+    vi.getCalibrationFrames()
+    calib_frames = [
+        [f"{dir_path}/calib/cam01_{i}.png" for i in range(num_frames)],
+        [f"{dir_path}/calib/cam02_{i}.png" for i in range(num_frames)]
+    ]
+    return calib_frames
+
+def calibrate(self, calib_imgs: list, n_rows: int=4, n_cols: int=7, 
+                  square_size: float=2.5):
+    """Retrieves the calibration constants from a set of given images.
+    
+    Parameters
+    ----------
+    calib_imgs : list
+        list of size 2, where each entry is a list of images taken from a 
+        single camera. Each image is of a checkerboard captured by each 
+        camera at a single instant (so that each image is synchronized). See
+        `camera_interface.py` for assistance in taking the images.
+    n_rows: int=4
+        The number of rows of intersections on the checkerboard
+    n_cols: int=7
+        The number of columns of intersections on the checkerboard
+    square_size: float=2.5
+        The dimension of a single square on the checkerboard, in cm
+
+    Returns
+    -------
+    list : length-2 list of projection matrices
+    list : length-2 list of lists of distortion coefficients
+    list : length-2 list of 3x3 camera intrinsic matrices
+    """
+    calib = [calibCamIntrinsic(calib_imgs[i], n_rows, n_cols, square_size, 
+                                False) for i in range(len(calib_imgs))]
+    mtx = [calib[i]['camera_matrix'] for i in range(len(calib))]
+    dist = [calib[i]['dist_coeffs'] for i in range(len(calib))]
+    rmse, R, T = stereoCalibration(*calib_imgs, *mtx, *dist, 4, 7, 2.5, False)
+    projMat1 = mtx[0] @ cv.hconcat([np.eye(3), np.zeros((3,1))]) # Cam1 is the origin
+    projMat2 = mtx[1] @ cv.hconcat([R, T]) # R, T from stereoCalibrate
+
+    return [projMat1, projMat2], dist, mtx
+
+def releaseCameras(cameras: list):
+    """Releases the cameras once the sequencing is complete."""
+    for cam in cameras:
+        cam.release()
+
+def doMocap(cameras: list, proj_mtrxs: list, cam_mtrxs: list, dist_coefs: list):
+    """Caller for the main Mocap process."""
+    aruco = Aruco()
+    db = DBActor()
+    params = setupMocapDB(params, db)
+    frame_counter = 0
+    while all([cam.isOpened() for cam in cameras]):
+        log.debug(f"Processing frame {frame_counter}")
+        updateMarkers(cameras, proj_mtrxs, cam_mtrxs, dist_coefs, aruco)
+        frame_counter += 1
+        params = updateParamsFromMarkers(params, aruco)
+        sendParamsToDB(params)
+
+def updateMarkers(cameras: list, proj_mtrxs: list, cam_mtrxs: list, 
+                  dist_coefs: list, aruco: Aruco) -> dict:
+    """Updates 3D coordinates for each marker in the list found by both cameras."""
+    imgs = [getImage(cam) for cam in cameras]
+    if not all(imgs): 
+        return #Check for invalid frames
+    aruco.findMarkerCenters(imgs, proj_mtrxs, cam_mtrxs, dist_coefs)
+    
+def getImage(camera):
+    """Returns the next frame from the given camera."""
+    img = camera.read()
+    if not img[0]:
+        camera.release()
+    return img[1]
+
+def updateParamsFromMarkers(aruco: Aruco, params: dict) -> dict:
+    """Returns a dict of `Param` objects calculated from the aruco markers."""
+    markers = aruco.markers
+    updateOrigin(markers, params)
+    updateBumpOffset(markers, params)
+    updateMiterAngle(markers, params)
+
+def updateOrigin(markers: dict, params: dict):
+    """Calculates the origin (x, y, z) as the median of the found coordinates."""
+    labels = ['origin_x', 'origin_y', 'origin_z']
+    origin_1 = markers['origin_1'].point()
+    origin_2 = markers['origin_2'].point()
+    for i in range(len(labels)):
+        value_avg = np.mean([origin_1[i], origin_2[i]])
+        params[labels[i]].set(value_avg, use_median=True, median_size=4)
+
+def updateBumpOffset(markers: dict, params: dict):
+    """Calculates the bump offset (x, y, z) as the median of the found coordinates."""
+    bo_labels = ['bump_offset_x', 'bump_offset_y', 'bump_offset_z']
+    origin_labels = ['origin_x', 'origin_y', 'origin_z']
+    base_1 = markers['base_1'].point()
+    base_2 = markers['base_2'].point()
+    for i in range(len(bo_labels)):
+        base_avg = np.mean([base_1[i], base_2[i]])
+        bo = params[origin_labels[i]] - base_avg
+        params[bo_labels[i]].set(bo, use_median=True, median_size=4)
+
+def transformPoints(points, origin=None, bump_offset=None, miter_angle=None, bevel_angle=None, 
+                   slider_offset=None, crash_angle=None):
+    """Transforms the Nx3 point array `points` according to the specified 
+    parameters."""
+    T = Transform()
+    if origin is not None:
+        T.translate(delx=-origin[0], dely=-origin[1], delz=-origin[2])
+    if bump_offset is not None:
+        T.translate(delx=-bump_offset[0], dely=-bump_offset[1], delz=-bump_offset[2])
+    if slider_offset is not None:
+        T.translate(dely=-slider_offset)
+    if miter_angle is not None:
+        T.rotate(psi=-miter_angle)
+    if miter_angle is not None:
+        T.rotate(phi=-bevel_angle)
+    if crash_angle is not None:
+        T.rotate(theta=-crash_angle)
+    return T.transform(points)
+
+def updateMiterAngle(markers: dict, ps: dict, n_frames: int=1):
+    """Calculates the miter angle (radians) from the passed markers."""
+    labels = ['miter_1', 'miter_2']
+    for l in (labels):
+        pts = markers[l].centers[-n_frames:]
+        if len(pts) < 4: 
+            return 0
+        pts = transformPoints(miter_pts, ps['origin'].value, ps['bump_offset'].value)
+        center = calcCOR(*pts)
+        angle = calcAngleOfRotation(pts[-1], pts[-2], center)
+
+    miter_pts = markers['miter_1'].centers[-n_frames:] + markers['miter_2'].centers[-n_frames:]
+    miter_pts = transformPoints(miter_pts, ps['origin'].value, ps['bump_offset'].value)
+    miter_cor = calcCOR(*miter_pts)
+    miter_angle_1 = calcAngleOfRotation(miter_pts)
+
+def calcCOR(positions: list) -> tuple:
+    """Estimate the center of rotation given a series of positions of a rotated 
+    point in 3D, where positions is a list of tuples representing the positions 
+    (x, y, z)."""
+    if len(positions) < 4:
+        raise ValueError("At least four points required to estimate 3D center of rotation.")
+    
+    positions = np.array(positions)
+    A, b = zip(*[getBisectorMatrices(*positions[i:i+2]) for i in range(len(positions) - 2)])
+    A = np.array(A)
+    b = np.array(b)
+    center = np.linalg.lstsq(A, b, rcond=None)[0]
+    return tuple(center)
+
+def calcAngleOfRotation(pt1, pt2, cor) -> float:
+    """Returns the angle of rotation between the two points centered on the 
+    center of rotation (`cor`)."""
+    vec1, vec2 = [np.array(pt) - cor for pt in [pt1, pt2]]
+    vec1, vec2 = [np.linalg.norm(v) for v in [vec1, vec2]]
+    dot = np.dot(vec1, vec2)
+    theta = np.arccos(dot)
+    return theta
+
+def getBisectorMatrices(pt1, pt2, pt3):
+    """Returns a linear algebraic structure for the bisector line extending from 
+    the midpoint of the triangle connecting the three inputted points."""
+    x1, y1, z1 = pt1
+    x2, y2, z2 = pt2
+    x3, y3, z3 = pt3
+    
+    # Midpoint of the triangle
+    mid_x = np.mean([x1, x2, x3])
+    mid_y = np.mean([y1, y2, y3])
+    mid_z = np.mean([z1, z2, z3])
+    
+    # Normal vector to the plane defined by the triangle
+    v1 = np.array([x2 - x1, y2 - y1, z2 - z1])
+    v2 = np.array([x3 - x1, y3 - y1, z3 - z1])
+    normal = np.cross(v1, v2) 
+    norm = np.linalg.norm(normal)
+    if norm == 0:
+        raise ValueError("The given points are collinear in 3D space.")
+    normal = normal / norm #unit normal vector for circle bisector
+    related_pnt = np.dot(normal, [mid_x, mid_y, mid_z]) #related point on bisector
+    return normal, related_pnt
+
+def sendParamsToDB(params: dict, db: DBActor):
+    """Stores the current 3D coordinates of the inputted parameters in the DB."""
+    mocapseq_table = db.name.MOCAPSEQ_TBL_NAME
+    seq_pk = db.getMaxPrimaryKey(mocapseq_table) + 1
+    db.addEntry(mocapseq_table, [seq_pk], [db.name.MOCAPSEQ_TBL_COLS[0]])
+
+    tbl_name = db.name.MOCAP_TBL_NAME
+    col_names = db.name.MOCAP_TBL_COLS[1:]
+    for p in params.values():
+        values = [p.value, seq_pk, p.db_id]
+        db.addEntry(tbl_name, values, col_names)
+
+def setupMocapDB(param_labels: list, db: DBActor) -> dict:
+    """Makes sure the DB contains all parameters and returns a dict of `Param` 
+    objects with DB IDs, indexed by parameter label."""
+    table_name = db.name.MOCAPMKR_TBL_NAME
+    pk = db.getMaxPrimaryKey(table_name) + 1
+    db_markers = db.getEntries(table_name)
+    extant_labels = [e[1] for e in db_markers]
+    params = dict()
+    for label in param_labels:
+        if label not in extant_labels:
+            db.addEntry(table_name, [pk, label], db.name.MOCAPMKR_TBL_COLS)
+            db_id = pk
+            pk += 1
+        else:
+            db_id = db_markers[extant_labels.index(label.name)][0]
+        params[label] = (Param(label, db_id))
+    return params
+
+
+
+
+
+
+
+################################
 log.basicConfig(level=log.DEBUG)
 
 class Mocap():
@@ -195,74 +474,6 @@ class Mocap():
             camera.release()
         return img[1]
     
-    def makeGrayscale(self, img):
-        """Removes color in the image leaving only shades of black, grey, and white."""
-        out = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-        return out
-    
-    def blurImage(self, img, radius=15):
-        """Performs Gaussian blurring on the image with given radius."""
-        blurred = cv.GaussianBlur(img, (radius, radius), 0)
-        return blurred
-    
-    def findBrightestPoint(self, reduced_img, point: tuple=None, dx: float=0.05, dy: float=None) -> tuple:
-        """Returns the location for the brightest pixel in the image.
-        
-        Parameters
-        ----------
-        img : array_like
-            The image to find the brightest pixel within.
-        point : tuple, Optional
-            Center of region to search for brightest pixel. If None, the method searches
-            whole image.
-        dx : float=0.5
-            The width of the region to search as a proportion of the width of the image. Only 
-            considered if `point` is passed as an parameter.
-        dy : float, Optional
-            The height of the region to search as a proportion of the height of the image.
-            If not passed, dy is assumed to be equal to dx.
-        
-        Returns
-        -------
-        tuple : (x_coordinate, y_coordinate) specifying location of brightest pixel.
-
-        Notes
-        -----
-        For region based searching the region is clipped by the image frame, so that regions 
-        located near the edges of the image are necessarily smaller than indicated.
-        """
-        if point is not None:
-            reduced_img, limits = self.getRegionFromImage(reduced_img, point, dx, dy)
-        (minVal, maxVal, minLoc, maxLoc) = cv.minMaxLoc(reduced_img)
-        point = (limits[0] + maxLoc[0], 
-                 limits[2] + maxLoc[1])
-        return point
-        
-    def getRegionFromImage(self, img, point: tuple, dx: float=0.05, dy: float=None):
-        """Clips the given image to a box region centered at the `point` with width dx
-        and height dy.
-        
-        Returns
-        -------
-            array_like: 2D subset of `img`
-            tuple: 4x1 tuple with coordinates of the region as `(min_x, max_x, min_y, max_y)`,
-                so that the outputted image can be calculated as `img[min_y : max_y, min_x : max_x]`
-        """
-        width = min([len(i) for i in img])
-        height = len(img)
-        if dy is None: 
-            dy = dx
-        dx = np.round(dx * width)
-        dy = np.round(dy * height)
-
-        min_x = np.rint(max(0, point[0] - dx)).astype(int)
-        max_x = np.rint(min(width, point[0] + dx)).astype(int)
-        min_y = np.rint(max(0, point[1] - dy)).astype(int)
-        max_y = np.rint(min(height, point[1] + dy)).astype(int)
-        img = np.array(img)
-        clipped_img = img[min_y : max_y, min_x : max_x]
-        return clipped_img, (min_x, max_x, min_y, max_y)
-    
     def drawCoordinates(self, coords: list, img_path: str=None, img_frame=None):
         """Draws the markers on the given image.
         
@@ -319,10 +530,10 @@ class Mocap():
             if l not in extant_labels:
                 self.db.addEntry(table_name, [pk, l], self.db.name.MOCAPMKR_TBL_COLS)
                 pk += 1
-                self.getMarker(l).db_key = pk
+                self.getMarker(l).id = pk
             else:
                 db_pk = db_markers[extant_labels.index(l)][0]
-                self.getMarker(l).db_key = db_pk
+                self.getMarker(l).id = db_pk
 
     def compileSequence(self, labels: list=['x', 'y', 'z']) -> list:
         """Compiles a sequence based on current markers to write to the database.

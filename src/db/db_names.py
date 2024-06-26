@@ -41,8 +41,8 @@ LOG_TBL_VARTYPES = ['DOUBLE', 'INT', 'TEXT']
     Table of all Mocap sensor readings.
 """
 MOCAP_TBL_NAME = 'Mocap'
-MOCAP_TBL_COLS = ['mocap_pk', 'label', 'value', 'sequence', 'marker_pk']
-MOCAP_TBL_VARTYPES = ['INT', 'VARCHAR', 'FLOAT', 'INT', 'INT']
+MOCAP_TBL_COLS = ['mocap_pk', 'value', 'sequence', 'marker_pk']
+MOCAP_TBL_VARTYPES = ['INT', 'FLOAT', 'INT', 'INT']
 ############################################
 
 ############################################

@@ -26,3 +26,17 @@ markers:
     id: 30
   - name: arm_2
     id: 31
+
+--- # List of Dynamic Parameter Names
+parameters:
+  - origin_x
+  - origin_y
+  - origin_z
+  - bump_offset_x
+  - bump_offset_y
+  - bump_offset_z
+  - miter_angle
+  - bevel_angle
+  - slide_offset
+  - crash_angle
+
