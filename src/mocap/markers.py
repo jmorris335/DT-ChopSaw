@@ -147,20 +147,28 @@ class Aruco:
         self.world2model = np.eye(4)
 
     def generateMarkers(self, show: bool=False) -> list:
-        """Generates the set of ArUco markers."""
+        """Generates the set of ArUco markers. Returns a list of filepaths for
+        each marker."""
+        filepaths = list()
         for m in self.markers.values():
             am = cv.aruco.generateImageMarker(self.ARUCO_DICT, m.id, self.PIXEL_SIZE)
-            filepath = f"src/mocap/demo/ArUco/{m.name}_marker{m.id}.png"
+            filepath = f"src/mocap/media/ArUco/{m.name}_marker{m.id}.png"
             cv.imwrite(filepath, am)
-            cv.imshow("Marker ID " + str(m.id), am)
+            filepaths.append(filepath)
             if show:
-                cv.waitKey(1000)   
+                cv.imshow("Marker ID " + str(m.id), am)
+                cv.waitKey(1000)
+        return filepaths
 
-    def findMarkerCenters(self, frames, proj_mtrxs, cam_mtrxs, dist_coefs):
+    def findMarkerCenters(self, frames, proj_mtrxs, cam_mtrxs, dist_coefs, show=False):
         """Calculates the centers for all markers found in the given frames."""
-        corners1, ids1 = self.detectMarkers(frames[0])
-        corners2, ids2 = self.detectMarkers(frames[1])
-        self.calculateCenters([corners1, corners2], [ids1, ids2], proj_mtrxs, cam_mtrxs, dist_coefs)
+        corners1, ids1 = self.detectMarkers(frames[0], show)
+        corners2, ids2 = self.detectMarkers(frames[1], show)
+        if ids1 is None or ids2 is None: return None #A camera found no markers
+        ids1, ids2 = [[i[0] for i in ids] for ids in (ids1, ids2)]
+        corners1, corners2 = [[c[0].tolist() for c in corners] for corners in (corners1, corners2)]
+        corners, ids = self.coordinateFoundMarkers(corners1, corners2, ids1, ids2)
+        self.calculateCenters(corners, ids, proj_mtrxs, cam_mtrxs, dist_coefs)
 
     def detectMarkers(self, frame: np.ndarray, show: bool=False):
         """Detects all aruco markers in the frame and returns the 2D positions of
@@ -172,14 +180,28 @@ class Aruco:
             self.showDetectedMarkers(frame, corners, ids)
         return corners, ids
     
-    def calculateCenters(self, corners, ids, proj_mtrxs, cam_mtrxs, dist_coefs):
-        """Calculates the centers of the markers at the given IDs and corners."""
+    def coordinateFoundMarkers(self, corners1: list, corners2, ids1: list, ids2: list):
+        """Updates the corners found on each marker in the list that was seen by 
+        both cameras. Corner inputs are nx4x2 array_like. Ids is a length-n list."""
+        common_ids = list(set(ids1).intersection(ids2))
+        common_corners = list()
+        for id in common_ids:
+            c1 = corners1[ids1.index(id)]
+            c2 = corners2[ids2.index(id)]
+            common_corners.append([c1, c2])
+        return common_corners, common_ids 
+    
+    def calculateCenters(self, corners, ids: list, proj_mtrxs, cam_mtrxs, dist_coefs):
+        """Calculates the centers of the markers at the given IDs and corners, 
+        where corners is nx2x4x2 and ids is length n."""
         for id in ids:
             m = self.getMarkerByID(id)
             if m.name == 'base':
-                self.world2model = m.calcModelCSYS(*corners)
+                base_corners = corners[ids.index(id)]
+                world_corners = m.planar2global(*base_corners, proj_mtrxs, cam_mtrxs, dist_coefs)
+                self.world2model = m.calcModelCSYS(*world_corners)
             m.triangulateCenter(self, corners, proj_mtrxs, cam_mtrxs, dist_coefs, 
-                                self.world2model) 
+                                self.world2model)       
 
     def getMarkerByID(self, id) -> Marker:
         """Returns the first marker in `self.markers` with the given ID."""
@@ -194,8 +216,31 @@ class Aruco:
         cv.imshow("Detected ArUco Markers", debug_frame)
         cv.waitKey(-1)
 
+def printMarkers(filepath='src/mocap/media/ArUco/'):
+    """A helper function for generating a printable doc of the ArUco markers."""
+    import matplotlib.pyplot as plt
+    aruco = Aruco()
+    paths = aruco.generateMarkers()
+    nrows = len(paths) // 4 + 1
+    ncols = 4
+    fig, axs = plt.subplots(nrows=nrows, ncols=ncols, figsize=(ncols*2.3, nrows*2.5))
+    for ax in fig.axes:
+        ax.axis("off")
+    for i,p in enumerate(paths):
+        index = (i // ncols, i % ncols)
+        img = cv.imread(p)
+        axs[index].imshow(img)
+        last_backslash = p.rindex('/') + 1
+        file_name = p[p.rindex('/') + 1 : p.index('.png')]
+        marker_name, _, marker_id = file_name.partition('_')
+        axs[index].set_title(marker_name)
+        axs[index].text(0.5, -0.1, marker_id, ha="center", transform=axs[index].transAxes)
+    plt.savefig(filepath + 'printable.png')
+    plt.show()
+
 if __name__ == "__main__":
-    a = Aruco()
-    # a.generateMarkers(show=False)
-    frame = cv.imread("src/mocap/dev-mocap/ArUco Test.jpg")
-    a.detectMarkers(frame, show=True)
+    # a = Aruco()
+    # # a.generateMarkers(show=False)
+    # frame = cv.imread("src/mocap/dev-mocap/ArUco Test.jpg")
+    # a.detectMarkers(frame, show=True)
+    printMarkers()

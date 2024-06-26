@@ -209,12 +209,13 @@ def getColumnIndex(csr: Cursor, column_name: str) -> int:
     return index
 
 def getMaxPrimaryKey(csr: Cursor, table_name: str) -> int:
-    """Returns the maximum primary key for the given table."""
+    """Returns the maximum primary key for the given table, or 0 if not pks found."""
     cmd = f"SHOW KEYS FROM `{table_name}` WHERE Key_name = 'PRIMARY';"
     csr.execute(cmd, {'table_name' : table_name})
     idx = getColumnIndex(csr, "Column_name")
     pk_column_name = csr.fetchall()[0][idx]
     entries = getEntries(csr, table_name, pk_column_name)
+    if len(entries) == 0: return 0
     max_pk = max([i[0] for i in entries])
     return max_pk
 

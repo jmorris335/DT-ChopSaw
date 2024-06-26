@@ -2,6 +2,9 @@
 General supporting functions for all objects or methods
 '''
 
+import yaml
+from types import SimpleNamespace
+
 def findDefault(default_val, key, kwargs: dict):
     ''' Returns default_val if the key is not found in the dict. Useful for setting default dictionary args
     '''
@@ -44,3 +47,28 @@ def shiftIndices(indices: list, index: int=0, shiftPos: bool=True):
         if indices[i] >= index:
             indices[i] += 1 if shiftPos else -1
 
+def gatherSawParameters(sawinfo_filepath: str="saw_info.yaml") -> dict:
+    """Parses the parameters file and forms a dictionary with all members."""
+    with open(sawinfo_filepath, 'r') as file:
+        saw_info, blade_info = yaml.safe_load_all(file)
+    saw_dims = SimpleNamespace(**saw_info['dims'])
+    blade_dims = SimpleNamespace(**blade_info['dims'])
+    params = {
+        'base_radius': saw_dims.radius_base,
+        'base_thickness': saw_dims.thickness_base,
+        'base_color': '#303030',
+        'stem_radius': saw_dims.radius_stem,
+        'stem_height': saw_dims.height_stem,
+        'stem_offset': saw_dims.offset_stem,
+        'stem_color': '#303030',
+        'slider_radius': saw_dims.radius_slider,
+        'slider_length': saw_dims.length_slider,
+        'slider_color': '#BBBBBB',
+        'arm_radius': saw_dims.radius_arm,
+        'arm_length': saw_dims.length_arm,
+        'arm_color': '#F3B627',
+        'blade_radius': blade_dims.radius_blade,
+        'blade_thickness': blade_dims.thickness_blade,
+        'blade_color': '#993333'
+    }
+    return params

@@ -25,6 +25,7 @@ from src.mocap.camera_interface import VideoInterface
 from src.mocap.markers import Marker, Aruco
 from src.auxiliary.geometry import pointDistance, shiftPoints
 from src.auxiliary.transform import Transform
+from src.auxiliary.support import gatherSawParameters
 from src.db.actor import DBActor
 
 log.basicConfig(level=log.DEBUG)
@@ -44,8 +45,9 @@ def startMocap(camera1, camera2, projection_mtrxs: list=None, calib_frames=None)
         if calib_frames is None:
             calib_frames = getCalibrationFrames()
         proj_mtrxs, cam_mtrxs, dist_coefs = calibrate(calib_frames)
+    saw_params = gatherSawParameters()
 
-    doMocap(cameras, proj_mtrxs, cam_mtrxs, dist_coefs)
+    doMocap(cameras, proj_mtrxs, cam_mtrxs, dist_coefs, saw_params)
     releaseCameras(cameras)
 
 def openCameras(cameras: list):
@@ -53,18 +55,15 @@ def openCameras(cameras: list):
     return [cv.VideoCapture(cam) for cam in cameras]
 
 def getCalibrationFrames(camera_ids: list=[0, 1]) -> list:
-    """Opens cameras and collects calibration images."""
+    """Opens cameras and collects calibration images. Returns a 2D list of filepaths
+    for each camera."""
     dir_path = "src/mocap/media"
     num_frames = 12
     vi = VideoInterface([0, 1], dir_path=dir_path)
-    vi.getCalibrationFrames()
-    calib_frames = [
-        [f"{dir_path}/calib/cam01_{i}.png" for i in range(num_frames)],
-        [f"{dir_path}/calib/cam02_{i}.png" for i in range(num_frames)]
-    ]
-    return calib_frames
+    calib_frame_paths = vi.getCalibrationFrames()
+    return calib_frame_paths
 
-def calibrate(self, calib_imgs: list, n_rows: int=4, n_cols: int=7, 
+def calibrate(calib_imgs: list, n_rows: int=4, n_cols: int=7, 
                   square_size: float=2.5):
     """Retrieves the calibration constants from a set of given images.
     
@@ -103,7 +102,8 @@ def releaseCameras(cameras: list):
     for cam in cameras:
         cam.release()
 
-def doMocap(cameras: list, proj_mtrxs: list, cam_mtrxs: list, dist_coefs: list):
+def doMocap(cameras: list, proj_mtrxs: list, cam_mtrxs: list, dist_coefs: list,
+            saw_params: dict):
     """Caller for the main Mocap process."""
     aruco = Aruco()
     db = DBActor()
@@ -111,18 +111,18 @@ def doMocap(cameras: list, proj_mtrxs: list, cam_mtrxs: list, dist_coefs: list):
     frame_counter = 0
     while all([cam.isOpened() for cam in cameras]):
         log.debug(f"Processing frame {frame_counter}")
-        updateMarkers(cameras, proj_mtrxs, cam_mtrxs, dist_coefs, aruco)
+        updateMarkers(cameras, proj_mtrxs, cam_mtrxs, dist_coefs, aruco, show=True)
         frame_counter += 1
-        updateParamsFromMarkers(aruco, params)
+        updateParamsFromMarkers(aruco, params, saw_params)
         sendParamsToDB(params)
 
 def updateMarkers(cameras: list, proj_mtrxs: list, cam_mtrxs: list, 
-                  dist_coefs: list, aruco: Aruco) -> dict:
+                  dist_coefs: list, aruco: Aruco, show=False) -> dict:
     """Updates 3D coordinates for each marker in the list found by both cameras."""
     imgs = [getImage(cam) for cam in cameras]
-    if not all(imgs): #Check for invalid frames
+    if not all([False if i is None else True for i in imgs]): #Check for invalid frames
         return 
-    aruco.findMarkerCenters(imgs, proj_mtrxs, cam_mtrxs, dist_coefs)
+    aruco.findMarkerCenters(imgs, proj_mtrxs, cam_mtrxs, dist_coefs, show)
     
 def getImage(camera):
     """Returns the next frame from the given camera."""
@@ -131,14 +131,14 @@ def getImage(camera):
         camera.release()
     return img[1]
 
-def updateParamsFromMarkers(aruco: Aruco, params: dict):
+def updateParamsFromMarkers(aruco: Aruco, params: dict, saw_params: dict):
     """Returns a dict of `Param` objects calculated from the aruco markers."""
-    out_params = getChainValues(aruco.markers, params)
+    out_params = getChainValues(aruco.markers, saw_params)
     labels = aruco.param_names
     for l, p in zip(labels, out_params):
         params[l].value = p
 
-def getChainValues(markers: dict, params: dict):
+def getChainValues(markers: dict, saw_info: dict):
     """Caller function that returns the values for the saw open chain.
     
     Parameters
@@ -150,16 +150,12 @@ def getChainValues(markers: dict, params: dict):
             bevel : Marker
             slider : Marker
             crash : Marker
-    params : dict
+    saw_info : dict
         Dictionary of parameters that describe the saw. Must contain the 
         following key, value pairs:
-            moffset_miter : tuple
             offset_stem : tuple
-            moffset_bevel : tuple
             height_stem : float
-            moffset_slider : tuple
             length_slider : float
-            moffset_crash : tuple
         Note that moffset indicates the (x,y,z) distance from the marker center 
         to the ideal point of the attached joint.
     """
@@ -167,25 +163,21 @@ def getChainValues(markers: dict, params: dict):
     bevel = markers['bevel']
     slider = markers['slider']
     crash = markers['crash']
-    moffset_miter = params['moffset_miter']
-    offset_stem = params['ooffset_stem']
-    moffset_bevel = params['moffset_bevel']
-    height_stem = params['height_stem']
-    moffset_slider = params['moffset_slider']
-    length_slider = params['length_slider']
-    moffset_crash = params['moffset_crash']
+    offset_stem = saw_info['stem_offset']
+    height_stem = saw_info['stem_height']
+    length_slider = saw_info['slider_length']
 
-    miter_angle = findMiterAngle(miter, moffset_miter)
+    miter_angle = findMiterAngle(miter)
     bevel_COR = calcBevelCOR(miter_angle, offset_stem)
-    bevel_angle = findBevelAngle(bevel, moffset_bevel, bevel_COR)
+    bevel_angle = findBevelAngle(bevel, bevel_COR)
     stem_top = calcStemTop(miter_angle, offset_stem, bevel_angle, bevel_COR,
                            height_stem)
-    slider_offset = findSliderOffset(slider, moffset_slider, stem_top)
+    slider_offset = findSliderOffset(slider, stem_top)
     crash_COR = calcCrashCOR(miter_angle, offset_stem, bevel_angle, bevel_COR,
                              height_stem, slider_offset, length_slider)
     crash_zero = calcCrashZero(miter_angle, offset_stem, bevel_angle, bevel_COR,
                              height_stem, slider_offset, length_slider)
-    crash_angle = calcCrashAngle(crash, moffset_crash, crash_zero, crash_COR)
+    crash_angle = calcCrashAngle(crash, crash_zero, crash_COR)
     return miter_angle, bevel_angle, slider_offset, crash_angle
 
 def calcAngle(pnt1: tuple, pnt2: tuple, intersection: tuple)-> float:
@@ -196,16 +188,16 @@ def calcAngle(pnt1: tuple, pnt2: tuple, intersection: tuple)-> float:
     theta = np.arccos(np.dot(v1, v2))
     return theta
 
-def adjustMarkerCenter(m: Marker, offset: tuple)-> tuple:
-    """Returns the marker center, translated by the offset so as to be at the 
+def adjustMarkerCenter(m: Marker)-> tuple:
+    """Returns the marker center, translated by the marker offset so as to be at the 
     correct location if the saw was at rest. This undoes any offset that might
     have occured when placing the marker."""
-    center = shiftPoints(m.center[-1], offset, inverse=True)
+    center = shiftPoints(m.center[-1], m.moffset, inverse=True)
     return center
 
-def findMiterAngle(miter: Marker, offset: tuple)-> float:
+def findMiterAngle(miter: Marker)-> float:
     """Calculates the miter angle based on the miter marker."""
-    marker_center = adjustMarkerCenter(miter, offset)
+    marker_center = adjustMarkerCenter(miter)
     miter_zero = (1, 0, 0)
     miter_COR = (0, 0, 0)
     return calcAngle(marker_center, miter_zero, miter_COR)
@@ -219,9 +211,9 @@ def calcBevelCOR(miter_angle, stem_offset, miter_COR=(0,0,0))-> tuple:
     bevel_COR = T.transform(miter_COR)[0][:3]
     return bevel_COR
 
-def findBevelAngle(bevel: Marker, offset: tuple, bevel_COR: tuple)-> float:
+def findBevelAngle(bevel: Marker, bevel_COR: tuple)-> float:
     """Calculates the bevel angle based on the bevel marker."""
-    bevel_center = adjustMarkerCenter(bevel, offset)
+    bevel_center = adjustMarkerCenter(bevel)
     bevel_zero = (0, 1, 0)
     bevel_angle = calcAngle(bevel_center, bevel_zero, bevel_COR)
     return bevel_angle
@@ -238,11 +230,11 @@ def calcStemTop(miter_angle, stem_offset, bevel_angle, bevel_COR, stem_height,
     stem_top = T.transform(miter_COR)[0][:3]
     return stem_top
 
-def findSliderOffset(slider: Marker, offset: tuple, stem_top: tuple)-> float:
+def findSliderOffset(slider: Marker, stem_top: tuple)-> float:
     """Calculates the distance from `stem_top` to the crash center of rotation.
     Note that the offset is the distance from the center of the slider center to 
     the crash arm center of rotation."""
-    slider_center = adjustMarkerCenter(slider, offset)
+    slider_center = adjustMarkerCenter(slider)
     slider_offset = pointDistance(slider_center, stem_top)
     return slider_offset
 
@@ -273,10 +265,10 @@ def calcCrashZero(miter_angle, stem_offset, bevel_angle, bevel_COR, stem_height,
     crash_zero = T.transform(miter_COR)[0][:3]
     return crash_zero
 
-def calcCrashAngle(crash: Marker, offset: tuple, crash_zero: tuple, 
+def calcCrashAngle(crash: Marker, crash_zero: tuple, 
                    crash_COR: tuple)-> float:
     """Calculates the crash angle based on the crash arm marker."""
-    crash_center = adjustMarkerCenter(crash, offset)
+    crash_center = adjustMarkerCenter(crash)
     crash_angle = calcAngle(crash_center, crash_zero, crash_COR)
     return crash_angle
 
@@ -306,7 +298,7 @@ def setupMocapDB(param_labels: list, db: DBActor) -> dict:
             db_id = pk
             pk += 1
         else:
-            db_id = db_markers[extant_labels.index(label.name)][0]
+            db_id = db_markers[extant_labels.index(label)][0]
         params[label] = Param(label, db_id)
     return params
 

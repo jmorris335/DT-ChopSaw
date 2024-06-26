@@ -1,12 +1,14 @@
 from src.mocap.mocap import startMocap
 
 def mocapSim():
-    camera1 = "src/mocap/media/Saw_Synch_01.mp4"
-    camera2 = "src/mocap/media/Saw_Synch_02.mp4"
+    # camera1 = "src/mocap/media/Saw_Synch_01.mp4"
+    # camera2 = "src/mocap/media/Saw_Synch_02.mp4"
+    camera1 = 1
+    camera2 = 0
 
     calibration_imgs = [
-        [f"src/mocap/media/calib/cam01_{i}.png" for i in range(12)],
-        [f"src/mocap/media/calib/cam02_{i}.png" for i in range(12)]
+        [f"src/mocap/media/calib/cam0_{i+1}.png" for i in range(10)],
+        [f"src/mocap/media/calib/cam1_{i+1}.png" for i in range(10)]
     ]
 
     startMocap(camera1, camera2, calib_frames=calibration_imgs)

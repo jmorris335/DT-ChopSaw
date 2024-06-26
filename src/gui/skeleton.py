@@ -20,6 +20,7 @@ if __name__ == '__main__':
 from src.gui.plotter3D import makeCylinderFromEndpoints, makeCylinder
 from src.auxiliary.transform import Transform
 from src.auxiliary.geometry import pointDistance
+from src.auxiliary.support import gatherSawParameters
  
 def plotSaw(origin=(0.,0.,0.), miter_angle=0., bump_offset=(0.,0.,0.), 
             bevel_angle=0., slider_offset=0., crash_angle=0., params=None, **kwargs):
@@ -32,32 +33,6 @@ def plotSaw(origin=(0.,0.,0.), miter_angle=0., bump_offset=(0.,0.,0.),
     params.update(kwargs)
     params = SimpleNamespace(**params)
     return getSawSurfaces(params)
-
-def gatherSawParameters(sawinfo_filepath: str="saw_info.yaml") -> dict:
-    """Parses the parameters file and forms a dictionary with all members."""
-    with open(sawinfo_filepath, 'r') as file:
-        saw_info, blade_info = yaml.safe_load_all(file)
-    saw_dims = SimpleNamespace(**saw_info['dims'])
-    blade_dims = SimpleNamespace(**blade_info['dims'])
-    params = {
-        'base_radius': saw_dims.radius_base,
-        'base_thickness': saw_dims.thickness_base,
-        'base_color': '#303030',
-        'stem_radius': saw_dims.radius_stem,
-        'stem_height': saw_dims.height_stem,
-        'stem_offset': saw_dims.offset_stem,
-        'stem_color': '#303030',
-        'slider_radius': saw_dims.radius_slider,
-        'slider_length': saw_dims.length_slider,
-        'slider_color': '#BBBBBB',
-        'arm_radius': saw_dims.radius_arm,
-        'arm_length': saw_dims.length_arm,
-        'arm_color': '#F3B627',
-        'blade_radius': blade_dims.radius_blade,
-        'blade_thickness': blade_dims.thickness_blade,
-        'blade_color': '#993333'
-    }
-    return params
 
 def getSawSurfaces(p: SimpleNamespace) -> list:
     """Finds and returns the surfaces for each member of the saw."""

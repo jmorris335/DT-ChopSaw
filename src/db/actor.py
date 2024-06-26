@@ -180,8 +180,12 @@ class DBActor:
         return db.checkIfColExists(self.csr, table_name, column_name)
     
     def getMaxPrimaryKey(self, table_name: str) -> int:
-        """Returns the maximum primary key for the given table."""
-        return db.getMaxPrimaryKey(self.csr, table_name)
+        """Returns the maximum primary key for the given table. Returns 0 if
+        no primary keys found."""
+        key =  db.getMaxPrimaryKey(self.csr, table_name)
+        if isinstance(key, int):
+            return key
+        return 0
 
     def setupForeignKey(self, table_name: str, column_name: str, fk_table: str, fk_column: str) -> None:
         """Adds the designation of a foreign key to the column in the table."""
