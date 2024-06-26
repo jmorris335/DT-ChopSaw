@@ -149,7 +149,7 @@ def getSawChain(origin, bump_offset, miter_angle, bevel_angle, slider_offset,
     T.translate(delz = stem_height)
     T.translate(dely = slider_length + slider_offset)
     T.translate(dely = arm_length)
-    T.translate(delx=-blade_thickness/2)
+    T.translate(delx = -blade_thickness/2)
     T.rotate(theta=-crash_angle, x=arm_COR[0], y=arm_COR[1], z=arm_COR[2])
     T.rotate(phi=bevel_angle, x=bevel_COR[0], y=bevel_COR[1], z=bevel_COR[2])
     T.rotate(psi=miter_angle, x=miter_COR[0], y=miter_COR[1], z=miter_COR[2])

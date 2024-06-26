@@ -1,4 +1,4 @@
-from src.mocap.mocap import Mocap
+from src.mocap.mocap import startMocap
 
 def mocapSim():
     camera1 = "src/mocap/media/Saw_Synch_01.mp4"
@@ -9,9 +9,7 @@ def mocapSim():
         [f"src/mocap/media/calib/cam02_{i}.png" for i in range(12)]
     ]
 
-    mocap = Mocap(camera1, camera2, calib_frames=calibration_imgs)
-    mocap.start()
-    # scratchpaper()
+    startMocap(camera1, camera2, calib_frames=calibration_imgs)
 
 def scratchpaper():
     import cv2 as cv

@@ -2,41 +2,25 @@
 DICTIONARY: DICT_6X6_50
 PIXEL_SIZE: 100
 markers:
-  - name: origin_1
-    id: 0
-  - name: origin_2
-    id: 1
-  - name: base_1
+  - name: base
     id: 10
-  - name: base_2
-    id: 11
-  - name: miter_1
+    moffset: (0, 0, 0)
+  - name: miter
     id: 12
-  - name: miter_2
-    id: 13
-  - name: stem_1
+    moffset: (0, 0, 0)
+  - name: bevel
     id: 14
-  - name: stem_2
-    id: 15
-  - name: slider_1
+    moffset: (0, 0, 0)
+  - name: slider
     id: 20
-  - name: slider_2
-    id: 21
-  - name: arm_1
+    moffset: (0, 0, 0)
+  - name: crash
     id: 30
-  - name: arm_2
-    id: 31
+    moffset: (0, 0, 0)
 
 --- # List of Dynamic Parameter Names
 parameters:
-  - origin_x
-  - origin_y
-  - origin_z
-  - bump_offset_x
-  - bump_offset_y
-  - bump_offset_z
   - miter_angle
   - bevel_angle
   - slide_offset
   - crash_angle
-
