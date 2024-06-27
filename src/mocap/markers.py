@@ -80,7 +80,7 @@ class Marker:
         Parameters
         ----------
         pts1, pts2 : array_like
-            A (N x 2) array of points represnting the same 3D point as seen from 
+            A (N x 2) array of points representing the same 3D point as seen from 
             two stereographic cameras.
         cam_mtrx : list
             A list of length two of the 3x3 intrinsic camera matrices.

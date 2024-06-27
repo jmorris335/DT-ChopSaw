@@ -19,6 +19,7 @@ import cv2 as cv
 import logging as log
 import time
 import threading
+import yaml
 
 from src.mocap.calibration import calibCamIntrinsic, stereoCalibration
 from src.mocap.camera_interface import VideoInterface
@@ -38,15 +39,12 @@ class Param:
         self.db_id = db_id       
         self.value = value
     
-def startMocap(camera1, camera2, projection_mtrxs: list=None, calib_frames=None):
+def startMocap(camera1, camera2, camera_info_path: str='src/mocap/camera_info.yaml', 
+               calib_frames=None):
     """Caller for the motion capture process"""
     cameras = openCameras([camera1, camera2])
-    if projection_mtrxs is None:
-        if calib_frames is None:
-            calib_frames = getCalibrationFrames()
-        proj_mtrxs, cam_mtrxs, dist_coefs = calibrate(calib_frames)
+    proj_mtrxs, cam_mtrxs, dist_coefs = getCalibrationInfo(camera_info_path, calib_frames)
     saw_params = gatherSawParameters()
-
     doMocap(cameras, proj_mtrxs, cam_mtrxs, dist_coefs, saw_params)
     releaseCameras(cameras)
 
@@ -54,11 +52,29 @@ def openCameras(cameras: list):
     """Opens the cameras."""
     return [cv.VideoCapture(cam) for cam in cameras]
 
+def getCalibrationInfo(camera_info_path: str=None, calib_frames: list=None):
+    """Returns the calibration parameters for the current camera setup. 
+    
+    If `camera_info_path` is passed, then the function reads the corresponding YAML 
+     file. If `calib_frames` is passed, then each frame is used to calibrate. 
+     Otherwise runs a calibration routine. 
+
+     Returns (in order) the projection matrices, camera matrices, and distortion
+     coefficients.
+    """
+    if camera_info_path is not None:
+        with open(camera_info_path, 'r') as file:
+            info = yaml.safe_load(file)
+        return info['proj_mtrxs'], info['cam_mtrxs'], info['dist_coefs']
+    elif calib_frames is None:
+            calib_frames = getCalibrationFrames()
+    proj_mtrxs, cam_mtrxs, dist_coefs = calibrate(calib_frames)
+    return proj_mtrxs, cam_mtrxs, dist_coefs
+
 def getCalibrationFrames(camera_ids: list=[0, 1]) -> list:
     """Opens cameras and collects calibration images. Returns a 2D list of filepaths
     for each camera."""
     dir_path = "src/mocap/media"
-    num_frames = 12
     vi = VideoInterface([0, 1], dir_path=dir_path)
     calib_frame_paths = vi.getCalibrationFrames()
     return calib_frame_paths
@@ -89,13 +105,24 @@ def calibrate(calib_imgs: list, n_rows: int=4, n_cols: int=7,
     """
     calib = [calibCamIntrinsic(calib_imgs[i], n_rows, n_cols, square_size, 
                                 False) for i in range(len(calib_imgs))]
-    mtx = [calib[i]['camera_matrix'] for i in range(len(calib))]
-    dist = [calib[i]['dist_coeffs'] for i in range(len(calib))]
-    rmse, R, T = stereoCalibration(*calib_imgs, *mtx, *dist, 4, 7, 2.5, False)
-    projMat1 = mtx[0] @ cv.hconcat([np.eye(3), np.zeros((3,1))]) # Cam1 is the origin
-    projMat2 = mtx[1] @ cv.hconcat([R, T]) # R, T from stereoCalibrate
+    cam_mtxs = [calib[i]['camera_matrix'] for i in range(len(calib))]
+    dist_coef = [calib[i]['dist_coeffs'] for i in range(len(calib))]
+    rmse, R, T = stereoCalibration(*calib_imgs, *cam_mtxs, *dist_coef, 4, 7, 2.5, False)
+    projMat1 = cam_mtxs[0] @ cv.hconcat([np.eye(3), np.zeros((3,1))]) # Cam1 is the origin
+    projMat2 = cam_mtxs[1] @ cv.hconcat([R, T]) # R, T from stereoCalibrate
+    out_tuple = ([projMat1, projMat2], cam_mtxs, dist_coef)
+    writeCameraInfo(*out_tuple)
+    return out_tuple
 
-    return [projMat1, projMat2], dist, mtx
+def writeCameraInfo(proj_mtrxs, cam_mtrxs, dist_coefs, filepath: str='src/mocap/camera_info.yaml'):
+    """Writes the calibration information for the camera to the YAML file."""
+    camera_info = dict()
+    labels = ['proj_mtrxs', 'cam_mtrxs', 'dist_coefs']
+    for l,a in zip(labels, [proj_mtrxs, cam_mtrxs, dist_coefs]):
+        un_np = [i.tolist() for i in a]
+        camera_info[l] = un_np
+    with open(filepath, 'w') as file:
+        yaml.dump(camera_info, file, default_flow_style=False)
 
 def releaseCameras(cameras: list):
     """Releases the cameras once the sequencing is complete."""

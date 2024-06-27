@@ -1,17 +1,19 @@
 from src.mocap.mocap import startMocap
 
 def mocapSim():
-    # camera1 = "src/mocap/media/Saw_Synch_01.mp4"
-    # camera2 = "src/mocap/media/Saw_Synch_02.mp4"
-    camera1 = 1
-    camera2 = 0
+    camera1 = "src/mocap/media/saw_synch_0.mp4"
+    camera2 = "src/mocap/media/saw_synch_1.mp4"
+    # camera1 = 1
+    # camera2 = 0
 
     calibration_imgs = [
         [f"src/mocap/media/calib/cam0_{i+1}.png" for i in range(10)],
         [f"src/mocap/media/calib/cam1_{i+1}.png" for i in range(10)]
     ]
 
-    startMocap(camera1, camera2, calib_frames=calibration_imgs)
+    cam_info_path = 'src/mocap/camera_info.yaml'
+
+    startMocap(camera1, camera2, camera_info_path=cam_info_path, calib_frames=None)
 
 def scratchpaper():
     import cv2 as cv
