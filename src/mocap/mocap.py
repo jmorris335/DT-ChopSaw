@@ -138,10 +138,10 @@ def doMocap(cameras: list, proj_mtrxs: list, cam_mtrxs: list, dist_coefs: list,
     frame_counter = 0
     while all([cam.isOpened() for cam in cameras]):
         log.debug(f"Processing frame {frame_counter}")
-        updateMarkers(cameras, proj_mtrxs, cam_mtrxs, dist_coefs, aruco, show=True)
+        updateMarkers(cameras, proj_mtrxs, cam_mtrxs, dist_coefs, aruco, show=False)
         frame_counter += 1
         updateParamsFromMarkers(aruco, params, saw_params)
-        sendParamsToDB(params)
+        sendParamsToDB(params, db)
 
 def updateMarkers(cameras: list, proj_mtrxs: list, cam_mtrxs: list, 
                   dist_coefs: list, aruco: Aruco, show=False) -> dict:
@@ -149,7 +149,9 @@ def updateMarkers(cameras: list, proj_mtrxs: list, cam_mtrxs: list,
     imgs = [getImage(cam) for cam in cameras]
     if not all([False if i is None else True for i in imgs]): #Check for invalid frames
         return 
-    aruco.findMarkerCenters(imgs, proj_mtrxs, cam_mtrxs, dist_coefs, show)
+    found_markers = aruco.findMarkerCenters(imgs, proj_mtrxs, cam_mtrxs, dist_coefs, show)
+    num_found_markes = 0 if found_markers is None else len(found_markers)
+    log.debug(f"Found {num_found_markes} of {len(aruco.markers)} markers")
     
 def getImage(camera):
     """Returns the next frame from the given camera."""
@@ -163,6 +165,7 @@ def updateParamsFromMarkers(aruco: Aruco, params: dict, saw_params: dict):
     out_params = getChainValues(aruco.markers, saw_params)
     labels = aruco.param_names
     for l, p in zip(labels, out_params):
+        if np.isnan(p): continue
         params[l].value = p
 
 def getChainValues(markers: dict, saw_info: dict):
@@ -219,7 +222,7 @@ def adjustMarkerCenter(m: Marker)-> tuple:
     """Returns the marker center, translated by the marker offset so as to be at the 
     correct location if the saw was at rest. This undoes any offset that might
     have occured when placing the marker."""
-    center = shiftPoints(m.center[-1], m.moffset, inverse=True)
+    center = shiftPoints(m.center, m.moffset, inverse=True)
     return center
 
 def findMiterAngle(miter: Marker)-> float:

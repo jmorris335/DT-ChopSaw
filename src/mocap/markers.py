@@ -14,7 +14,7 @@ import yaml
 
 class Marker:
     def __init__(self, name: str, id: int, moffset: tuple=(0,0,0), db_id: int=None,
-                 center: float=None):
+                 center: tuple=(0., 0., 0.)):
         """Container class for marker points.
         
         Parameters
@@ -34,7 +34,7 @@ class Marker:
                 crash: crash arm center of rotation, center of slider arm
         db_id : int, Optional
             The primary key for the marker in the database
-        center : float, Optional
+        center : float, default = (0., 0., 0.)
             A length-3 tuple in model coordinates representing the center of the
             marker
         """
@@ -42,7 +42,7 @@ class Marker:
         self.id = id
         self.moffset = moffset
         self.db_id = db_id
-        self.center = list()
+        self.center = center
         self.T_w = [[1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]]
 
     def triangulateCenter(self, corners, proj_mtrxs, cam_mtrxs, dist_coefs, 
@@ -53,9 +53,9 @@ class Marker:
         Parameters
         ----------
         corners : list
-            A 4x2x2 array of 1x2 tuples of floats representing the coordinate 
+            A 2x4x2 array of 1x2 tuples of floats representing the coordinate 
             points for the marker's corners in a camera plane. This is of the form 
-            `[[(xl_1, yl_1), (xr_1, yr_1)], [(xl_2, yl_2), (xr_2, yr_2)], ...]`.
+            `[[(xl_1, yl_1), (xl_2, yl_2)...], [(xr_1, yr_1), (xr_2, yr_2)], ...]`.
         proj_mtrx : list
             A list of length two of the 4x4(?) projection matrices.
         cam_mtrx : list
@@ -69,7 +69,8 @@ class Marker:
         corners3D = self.planar2global(*corners, proj_mtrxs, cam_mtrxs, dist_coefs)
         center = np.mean(corners3D, 0)
         if world2model is not None:
-            center = np.append(center, 0) @ world2model
+            model_coord_center = np.append(center, 0) @ world2model
+            center = model_coord_center[:3]
         self.center = center
         return center
 
@@ -94,13 +95,16 @@ class Marker:
         - N x 3 array where each row `i` is a tuple representing the (x, y, z) 
             coordinates of the point referenced by `pts1[i]` and `pts2[i]`.
         """
+        proj_mtrxs = [np.array(a) for a in proj_mtrxs]
+        cam_mtrxs = [np.array(a) for a in cam_mtrxs]
+        dist_coefs = [np.array(a) for a in dist_coefs]
         pts = [np.array(p, 'float32') for p in [pts1, pts2]]
         pts_u = [cv.undistortPoints(pts[i], cam_mtrxs[i], dist_coefs[i], None, 
                                     cam_mtrxs[i]) for i in range(2)]
         pts_4D = cv.triangulatePoints(proj_mtrxs[0], proj_mtrxs[1], *pts_u)
         pts_4D = self.T_w @ pts_4D
         pts_3D = (pts_4D[:3, :]/pts_4D[3, :]).T
-        return tuple(pts_3D[0])
+        return pts_3D
     
     def calcModelCSYS(self, BL: tuple, BR: tuple, TL: tuple, 
                       TR: tuple=None)-> np.ndarray:
@@ -122,7 +126,7 @@ class Marker:
         x, y, z = [a / np.linalg.norm(a) for a in (x, y, z)]
         M = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]]) #Model CSYS
         R = np.linalg.inv([x, y, z]) @ M
-        T = np.row_stack((np.column_stack((R, np.zeros((3,1))), [*self.moffset, 1])))
+        T = np.row_stack((np.column_stack((R, np.zeros((3,1)))), [*self.moffset, 1]))
         return T
 
 class Aruco:
@@ -160,15 +164,17 @@ class Aruco:
                 cv.waitKey(1000)
         return filepaths
 
-    def findMarkerCenters(self, frames, proj_mtrxs, cam_mtrxs, dist_coefs, show=False):
-        """Calculates the centers for all markers found in the given frames."""
+    def findMarkerCenters(self, frames, proj_mtrxs, cam_mtrxs, dist_coefs, 
+                          show=False)-> list:
+        """Calculates the centers for all markers found in the given frames. 
+        Returns a list of markers."""
         corners1, ids1 = self.detectMarkers(frames[0], show)
         corners2, ids2 = self.detectMarkers(frames[1], show)
         if ids1 is None or ids2 is None: return None #A camera found no markers
         ids1, ids2 = [[i[0] for i in ids] for ids in (ids1, ids2)]
         corners1, corners2 = [[c[0].tolist() for c in corners] for corners in (corners1, corners2)]
         corners, ids = self.coordinateFoundMarkers(corners1, corners2, ids1, ids2)
-        self.calculateCenters(corners, ids, proj_mtrxs, cam_mtrxs, dist_coefs)
+        return self.calculateCenters(corners, ids, proj_mtrxs, cam_mtrxs, dist_coefs)
 
     def detectMarkers(self, frame: np.ndarray, show: bool=False):
         """Detects all aruco markers in the frame and returns the 2D positions of
@@ -191,17 +197,20 @@ class Aruco:
             common_corners.append([c1, c2])
         return common_corners, common_ids 
     
-    def calculateCenters(self, corners, ids: list, proj_mtrxs, cam_mtrxs, dist_coefs):
+    def calculateCenters(self, corners, ids: list, proj_mtrxs, cam_mtrxs, 
+                         dist_coefs)-> list:
         """Calculates the centers of the markers at the given IDs and corners, 
-        where corners is nx2x4x2 and ids is length n."""
+        where corners is nx2x4x2 and ids is length n. Returns a list of the markers."""
+        out_markers = list()
         for id in ids:
             m = self.getMarkerByID(id)
+            m_corners = corners[ids.index(id)]
             if m.name == 'base':
-                base_corners = corners[ids.index(id)]
-                world_corners = m.planar2global(*base_corners, proj_mtrxs, cam_mtrxs, dist_coefs)
+                world_corners = m.planar2global(*m_corners, proj_mtrxs, cam_mtrxs, dist_coefs)
                 self.world2model = m.calcModelCSYS(*world_corners)
-            m.triangulateCenter(self, corners, proj_mtrxs, cam_mtrxs, dist_coefs, 
-                                self.world2model)       
+            m.triangulateCenter(m_corners, proj_mtrxs, cam_mtrxs, dist_coefs, self.world2model)
+            out_markers.append(m)
+        return out_markers
 
     def getMarkerByID(self, id) -> Marker:
         """Returns the first marker in `self.markers` with the given ID."""

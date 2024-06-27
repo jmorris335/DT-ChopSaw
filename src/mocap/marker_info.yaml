@@ -4,20 +4,35 @@ PIXEL_SIZE: 100
 markers:
   - name: base
     id: 10
-    moffset: (0, 0, 0)
+    moffset: 
+      - 0
+      - 0
+      - 0
   - name: miter
     id: 12
-    moffset: (0, 0, 0)
+    moffset: 
+      - 0
+      - 0
+      - 0
   - name: bevel
     id: 14
-    moffset: (0, 0, 0)
+    moffset: 
+      - 0
+      - 0
+      - 0
   - name: slider
     id: 20
-    moffset: (0, 0, 0)
+    moffset: 
+      - 0
+      - 0
+      - 0
   - name: crash
     id: 30
-    moffset: (0, 0, 0)
-
+    moffset: 
+      - 0
+      - 0
+      - 0
+      
 --- # List of Dynamic Parameter Names
 parameters:
   - miter_angle
