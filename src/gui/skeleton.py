@@ -40,7 +40,6 @@ def getSawSurfaces(p: SimpleNamespace) -> list:
                          p.slider_offset, p.crash_angle, p.stem_offset, p.stem_height, 
                          p.slider_length, p.arm_length, p.blade_thickness)
     miter_COR, bevel_COR, stem_top, arm_COR, blade_COR, blade_end = pts
-    print("\n" + str(pts) + "\n")
     base = makeBase(miter_COR, p.base_radius, p.base_thickness, p.base_color)
     stem = makeStem(bevel_COR, stem_top, p.stem_radius, p.stem_color)
     slider = makeSlider(arm_COR, stem_top, p.slider_radius, p.slider_length, p.slider_color)

@@ -103,14 +103,17 @@ def updateSawLive(n_intervals, pos_data):
     raise PreventUpdate #no new data to plot
 
 def getCoordinateParams(sequence: dict):
-    """Returns the parameters for `extendData` with data points taken from the given sequence."""
+    """Returns the parameters for `extendData` with data points taken from the 
+    given sequence."""
     markers = list(sequence['markers'].values())
     new_x, new_y, new_z = zip(*markers)
-    log.debug(f"Updating saw to sequence {sequence['id']}, first marker coords are: ({new_x[0]}, {new_y[0]}, {new_z[0]})")
+    log.debug(f"Updating saw to sequence {sequence['id']}, first marker coords are: 
+              ({new_x[0]}, {new_y[0]}, {new_z[0]})")
     return dict(x=[new_x], y=[new_y], z=[new_z]), [0], len(markers)
 
 def removePlottedSequences(data: list, keep_seq_index: int):
     """Returns a `Patch` with all sequences removed up to the `keep_seq_index`."""
+    #TODO: Right now this just wipes the store. Maybe that's fine? It might even be faster.
     patch = Patch()
     # if len(data) <= 1: #Check if data is already minimum size
     #     return patch

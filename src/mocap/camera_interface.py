@@ -10,7 +10,6 @@
 """
 
 import cv2 as cv
-from threading import Thread
 
 class VideoInterface:
     """

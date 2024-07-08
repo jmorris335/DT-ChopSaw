@@ -21,7 +21,9 @@ def connectToDB(db_name: str=None, DEV_OPS: bool=True) -> Connection:
     """
     options = {
         'option_files': './src/db/mysql/sql.config',
-        'option_groups': 'dev' if DEV_OPS else 'client'
+        'option_groups': 'dev' if DEV_OPS else 'client',
+        'buffered': True,
+        'consume_results': True
     }
     if db_name is not None:
         options['database'] = db_name
@@ -146,8 +148,15 @@ def getEntries(csr: Cursor, table_name: str, column_name: str=None) -> list:
         cmd = f"SELECT {column_name} FROM `{table_name}`"
     else:
         cmd = f"SELECT * FROM `{table_name}`"
-    csr.execute(cmd)
+
+    try:
+        csr.execute(cmd)
+    except SystemError:
+        print(cmd)
+        
+
     results = csr.fetchall()
+    csr.reset()
 
     if column_name is not None:
         return [r[:] for r in results]

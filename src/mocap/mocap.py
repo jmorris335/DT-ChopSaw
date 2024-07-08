@@ -17,8 +17,8 @@
 import numpy as np
 import cv2 as cv
 import logging as log
-import time
-import threading
+# import time
+# import threading
 import yaml
 
 from src.mocap.calibration import calibCamIntrinsic, stereoCalibration
@@ -114,6 +114,13 @@ def calibrate(calib_imgs: list, n_rows: int=4, n_cols: int=7,
     writeCameraInfo(*out_tuple)
     return out_tuple
 
+def writeImageToWebapp(img, camera: int, coords: list=None, path: str='src/gui/assets/'):
+    """Writes the image to the assets folder of the webapp."""
+    if coords is not None:
+        img = drawCoordinates(coords, img_frame=img)
+    img = cv.flip(img, 1)
+    cv.imwrite(f"{path}live_feed_cam{camera}.png", img)
+
 def writeCameraInfo(proj_mtrxs, cam_mtrxs, dist_coefs, filepath: str='src/mocap/camera_info.yaml'):
     """Writes the calibration information for the camera to the YAML file."""
     camera_info = dict()
@@ -142,13 +149,15 @@ def doMocap(cameras: list, proj_mtrxs: list, cam_mtrxs: list, dist_coefs: list,
         frame_counter += 1
         updateParamsFromMarkers(aruco, params, saw_params)
         sendParamsToDB(params, db)
-
+        
 def updateMarkers(cameras: list, proj_mtrxs: list, cam_mtrxs: list, 
                   dist_coefs: list, aruco: Aruco, show=False) -> dict:
     """Updates 3D coordinates for each marker in the list found by both cameras."""
     imgs = [getImage(cam) for cam in cameras]
     if not all([False if i is None else True for i in imgs]): #Check for invalid frames
         return 
+    for i in range(len(imgs)):
+        writeImageToWebapp(imgs[i], i)
     found_markers = aruco.findMarkerCenters(imgs, proj_mtrxs, cam_mtrxs, dist_coefs, show)
     num_found_markes = 0 if found_markers is None else len(found_markers)
     log.debug(f"Found {num_found_markes} of {len(aruco.markers)} markers")
@@ -213,9 +222,10 @@ def getChainValues(markers: dict, saw_info: dict):
 def calcAngle(pnt1: tuple, pnt2: tuple, intersection: tuple)-> float:
     """Returns the angle made by two vectors that intersect at `intersection` 
     and extend to the two inputted points."""
-    v1, v2 = shiftPoints([pnt1, pnt2], intersection, inverse=True, copy=True)
-    v1, v2 = [x / np.linalg.norm(x) for x in (v1, v2)]
-    theta = np.arccos(np.dot(v1, v2))
+    vectors = shiftPoints([pnt1, pnt2], intersection, inverse=True, copy=True)
+    norm = [np.linalg.norm(x) for x in vectors]
+    vectors = [[0,0,0] if norm[i] == 0 else vectors[i] / norm[i] for i in range(2)]
+    theta = np.arccos(np.dot(*vectors))
     return theta
 
 def adjustMarkerCenter(m: Marker)-> tuple:
@@ -332,6 +342,30 @@ def setupMocapDB(param_labels: list, db: DBActor) -> dict:
         params[label] = Param(label, db_id)
     return params
 
+def drawCoordinates(self, coords: list, img_path: str=None, img_frame=None):
+    """Draws markers on the given image.
+    
+    Wrapper for `OpenCV.drawMarker` function. Either`img_path` and `img_frame` 
+    must be passed to the function.
+
+    Parameters
+    ----------
+    coords: list
+        List of (2x1) array_like pixel coordinates for each marker.
+    img_path: str, Optional
+        Filepath for the image to display the markers on.
+    img_frame: list, Optional
+        The read frame in the form of `cv.InputOutputArray`
+    """
+    if img_path is not None:
+        frame = cv.imread(img_path, 1)
+    elif img_frame is None:
+        raise(Exception("No image path or IOarray was passed to display markers"))
+    else: frame = img_frame
+
+    for coord in coords:
+        cv.drawMarker(frame, coord[:2], color=(0, 0, 255), markerSize=20, markerType=cv.MARKER_CROSS, thickness=2)
+    return frame
 
 
 
